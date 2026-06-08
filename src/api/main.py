@@ -21,6 +21,12 @@ from src.db.client import get_db, insert_row, select_rows, upsert_row
 log = logging.getLogger(__name__)
 app = FastAPI(title="Job Agent", version="0.3.0")
 
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
