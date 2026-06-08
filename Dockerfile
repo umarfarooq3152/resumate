@@ -8,12 +8,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e ".[api]" 2>/dev/null || pip install --no-cache-dir -e .
+COPY src/ ./src/
+RUN pip install --no-cache-dir .
 
 # Install playwright chromium for Rozee scraper (optional, skip on failure)
 RUN playwright install chromium --with-deps 2>/dev/null || true
-
-COPY src/ ./src/
 
 ENV PORT=8000
 EXPOSE 8000
