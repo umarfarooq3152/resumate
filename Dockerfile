@@ -11,9 +11,6 @@ COPY pyproject.toml ./
 COPY src/ ./src/
 RUN pip install --no-cache-dir .
 
-# Install playwright chromium for Rozee scraper (optional, skip on failure)
-RUN playwright install chromium --with-deps 2>/dev/null || true
-
 ENV PORT=8000
 EXPOSE $PORT
 
