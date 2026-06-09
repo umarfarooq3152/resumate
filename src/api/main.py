@@ -324,20 +324,20 @@ async def list_jobs(
     if tab in type_map:
         query = query.eq("apply_type", type_map[tab])
 
-    # Date filter — posted_at first, fall back to discovered_at
+    # Date filter — use discovered_at (always present)
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-    query = query.or_(
-        f"posted_at.gte.{cutoff},and(posted_at.is.null,discovered_at.gte.{cutoff})"
-    )
+    query = query.gte("discovered_at", cutoff)
 
     # Location filter
     if location:
-        query = query.ilike("location", f"%{location}%")
+        query = query.ilike("location", f"%{location.strip()}%")
 
-    # Keyword filter
+    # Keyword filter — split comma-separated list and OR across title+company
     if keywords:
-        kw = keywords.strip()
-        query = query.or_(f"title.ilike.%{kw}%,company.ilike.%{kw}%")
+        kw_list = [k.strip() for k in keywords.split(",") if k.strip()][:8]
+        if kw_list:
+            parts = [f"title.ilike.%{kw}%,company.ilike.%{kw}%" for kw in kw_list]
+            query = query.or_(",".join(parts))
 
     query = query.order("discovered_at", desc=True).limit(limit)
 
