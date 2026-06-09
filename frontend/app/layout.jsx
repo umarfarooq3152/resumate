@@ -1,7 +1,14 @@
 import './globals.css';
 import { ThemeProvider } from '../components/ThemeProvider';
 
-export const metadata = { title: 'RESUMATE', description: 'AI-powered resume matching & application automation' };
+export const metadata = {
+  title: 'RESUMATE',
+  description: 'AI-powered resume matching & application automation',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
+};
 
 export default function RootLayout({ children }) {
   return (

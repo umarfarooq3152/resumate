@@ -76,7 +76,7 @@ export default function Sidebar({ onClose }) {
       {/* Logo */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200 dark:border-white/[0.06]">
         <Link href="/dashboard" onClick={onClose} className="group">
-          <Logo size={32} withName nameClass="font-bold text-slate-900 dark:text-white text-sm" />
+          <Logo size={44} withName nameClass="font-bold text-slate-900 dark:text-white text-base tracking-wide" />
         </Link>
         <button onClick={onClose} className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/8 text-slate-400 transition-colors cursor-pointer" aria-label="Close menu">
           <X className="w-4 h-4" />
