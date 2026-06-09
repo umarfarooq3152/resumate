@@ -6,6 +6,7 @@ import {
   Zap, ChevronRight, Lock, Star, Play, Database, Cpu,
 } from 'lucide-react';
 
+// v2 — dark space theme matching Spline scene
 const FEATURES = [
   { icon: Search,      title: 'Smart Job Discovery',   desc: 'Scans Adzuna, Remotive and more continuously. Fresh listings every run, zero duplicates.',         accent: '#22d3ee' },
   { icon: Target,      title: 'AI Match Scoring',       desc: 'Gemini AI scores every job 0–100 against your resume with strengths, gaps and plain reasoning.',    accent: '#a855f7' },
