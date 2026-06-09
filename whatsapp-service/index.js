@@ -19,6 +19,7 @@ const {
   makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
+  fetchLatestBaileysVersion,
   downloadMediaMessage,
   isJidUser,
   jidNormalizedUser,
@@ -224,19 +225,24 @@ async function dispatchVoiceToFastAPI(state, chatJid, msg) {
 
 // ── Session factory ───────────────────────────────────────────────────────────
 
-async function startSocket(sessionId, state) {
+async function startSocket(sessionId, state, retryCount = 0) {
   const authPath = path.join(AUTH_DIR, sessionId);
   fs.mkdirSync(authPath, { recursive: true });
 
   const { state: authState, saveCreds } = await useMultiFileAuthState(authPath);
+  const { version } = await fetchLatestBaileysVersion();
+  console.log(`[${sessionId}] using WA version ${version.join('.')} (attempt ${retryCount + 1})`);
 
   const sock = makeWASocket({
+    version,
     auth:               authState,
     printQRInTerminal:  false,
     logger:             silentLogger,
     browser:            ['Resumate', 'Chrome', '120.0.0'],
     syncFullHistory:    false,
     markOnlineOnConnect: false,
+    connectTimeoutMs:   60_000,
+    defaultQueryTimeoutMs: 60_000,
   });
 
   state.sock = sock;
@@ -268,12 +274,23 @@ async function startSocket(sessionId, state) {
       if (loggedOut) {
         sessions.delete(sessionId);
         fs.rmSync(authPath, { recursive: true, force: true });
-      } else {
-        // Reconnect after a short delay
+      } else if (code === 405 || code === 403) {
+        // Protocol rejection — clear stale auth and restart fresh to get new QR
+        console.log(`[${sessionId}] Protocol rejection (${code}), clearing auth for fresh QR`);
+        fs.rmSync(authPath, { recursive: true, force: true });
+        const delay = Math.min(5_000 * (retryCount + 1), 30_000);
         state.cleanupTimer = setTimeout(() => {
           state.cleanupTimer = null;
-          startSocket(sessionId, state).catch(e => console.error(`[${sessionId}] reconnect failed:`, e.message));
-        }, 5_000);
+          startSocket(sessionId, state, retryCount + 1).catch(e => console.error(`[${sessionId}] reconnect failed:`, e.message));
+        }, delay);
+      } else {
+        // Reconnect with exponential backoff
+        const delay = Math.min(3_000 * Math.pow(2, retryCount), 60_000);
+        console.log(`[${sessionId}] Reconnecting in ${delay}ms…`);
+        state.cleanupTimer = setTimeout(() => {
+          state.cleanupTimer = null;
+          startSocket(sessionId, state, retryCount + 1).catch(e => console.error(`[${sessionId}] reconnect failed:`, e.message));
+        }, delay);
       }
     }
 
@@ -371,7 +388,7 @@ function createSession(sessionId) {
   };
 
   sessions.set(sessionId, state);
-  startSocket(sessionId, state).catch(e => {
+  startSocket(sessionId, state, 0).catch(e => {
     console.error(`[${sessionId}] startSocket failed:`, e.message);
     sessions.delete(sessionId);
   });
