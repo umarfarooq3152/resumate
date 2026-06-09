@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Spline from '@splinetool/react-spline/next';
+import SplineHero from '@/components/SplineHero';
 import {
   Bot, Search, Target, FileEdit, Send, ShieldCheck,
   ClipboardList, BarChart3, ArrowRight, CheckCircle2,
@@ -69,10 +69,7 @@ export default function Landing() {
 
             <div className="flex items-center gap-2">
               <Link href="/login"
-                className="hidden sm:block text-sm font-medium px-4 py-1.5 rounded-lg transition-all"
-                style={{ color: 'rgba(255,255,255,0.5)' }}
-                onMouseEnter={e => e.currentTarget.style.color='white'}
-                onMouseLeave={e => e.currentTarget.style.color='rgba(255,255,255,0.5)'}>
+                className="hidden sm:block text-sm font-medium px-4 py-1.5 rounded-lg transition-all text-white/50 hover:text-white">
                 Sign in
               </Link>
               <Link href="/register"
@@ -87,10 +84,7 @@ export default function Landing() {
 
       {/* ─── Hero (Spline) ───────────────────────────────────────────── */}
       <section className="relative w-full h-screen overflow-hidden">
-        <Spline
-          scene="https://prod.spline.design/0sWxrv4yIUaXMQb6/scene.splinecode"
-          style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
-        />
+        <SplineHero />
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 pointer-events-none" style={{ opacity: 0.4 }}>
           <div className="w-px h-8" style={{ background: 'linear-gradient(to bottom, transparent, #22d3ee)' }} />
           <span className="text-[10px] text-cyan-400 uppercase tracking-widest">Scroll</span>
@@ -159,10 +153,8 @@ export default function Landing() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {FEATURES.map(({ icon: Icon, title, desc, accent }) => (
-              <div key={title} className="group relative p-6 rounded-2xl overflow-hidden cursor-default transition-all duration-200"
-                style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid rgba(255,255,255,0.07)` }}
-                onMouseEnter={e => { e.currentTarget.style.border = `1px solid ${accent}33`; e.currentTarget.style.background = `${accent}08`; }}
-                onMouseLeave={e => { e.currentTarget.style.border = '1px solid rgba(255,255,255,0.07)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}>
+              <div key={title} className="group relative p-6 rounded-2xl overflow-hidden cursor-default transition-all duration-200 hover:bg-white/[0.06] hover:border-white/20"
+                style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid rgba(255,255,255,0.07)` }}>
                 <div className="w-10 h-10 rounded-xl mb-5 flex items-center justify-center"
                   style={{ background: `${accent}18`, border: `1px solid ${accent}30`, boxShadow: `0 0 20px ${accent}20` }}>
                   <Icon className="w-5 h-5" style={{ color: accent }} />
