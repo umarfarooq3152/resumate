@@ -7,6 +7,14 @@ export async function GET(request) {
   const code = searchParams.get('code');
   const next = searchParams.get('next') ?? '/dashboard';
 
+  // On Railway (and most cloud platforms) request.url is the internal container
+  // URL (http://0.0.0.0:8080). Use x-forwarded-host to get the real public origin.
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
+  const siteOrigin = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}`
+    : (process.env.NEXT_PUBLIC_SITE_URL || origin);
+
   if (code) {
     const cookieStore = cookies();
     const supabase = createServerClient(
@@ -25,9 +33,9 @@ export async function GET(request) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${siteOrigin}${next}`);
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
+  return NextResponse.redirect(`${siteOrigin}/login?error=auth_callback_failed`);
 }
