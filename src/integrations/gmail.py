@@ -56,12 +56,12 @@ _AUTOMATED_SENDER_RE = re.compile(
 # OAuth2 helpers
 # ---------------------------------------------------------------------------
 
-def get_auth_url(user_id: str) -> str:
+def get_auth_url(user_id: str, redirect_uri: str | None = None) -> str:
     """Generate the Google OAuth2 consent URL (no PKCE — web server flow with client_secret)."""
     import urllib.parse
     params = {
         "client_id": settings.gmail_client_id,
-        "redirect_uri": settings.gmail_redirect_uri,
+        "redirect_uri": redirect_uri or settings.gmail_redirect_uri,
         "response_type": "code",
         "scope": " ".join(_GMAIL_SCOPES),
         "access_type": "offline",
@@ -71,7 +71,7 @@ def get_auth_url(user_id: str) -> str:
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
 
 
-async def exchange_code(code: str, user_id: str, db_get, upsert_row) -> dict[str, Any]:
+async def exchange_code(code: str, user_id: str, db_get, upsert_row, redirect_uri: str | None = None) -> dict[str, Any]:
     """Exchange an OAuth2 code for tokens via direct HTTP (avoids PKCE mismatch)."""
     from datetime import timedelta
     import httpx
@@ -83,7 +83,7 @@ async def exchange_code(code: str, user_id: str, db_get, upsert_row) -> dict[str
                 "code": code,
                 "client_id": settings.gmail_client_id,
                 "client_secret": settings.gmail_client_secret,
-                "redirect_uri": settings.gmail_redirect_uri,
+                "redirect_uri": redirect_uri or settings.gmail_redirect_uri,
                 "grant_type": "authorization_code",
             },
         )

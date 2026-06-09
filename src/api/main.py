@@ -897,30 +897,48 @@ async def whatsapp_logout(user_id: str) -> dict[str, Any]:
 # Gmail OAuth2
 # ---------------------------------------------------------------------------
 
+def _api_base(request: Request) -> str:
+    """Resolve this API service's own public URL from Railway's forwarded headers."""
+    forwarded_host = request.headers.get("x-forwarded-host")
+    forwarded_proto = request.headers.get("x-forwarded-proto", "https")
+    if forwarded_host:
+        return f"{forwarded_proto}://{forwarded_host}"
+    # Fall back to explicitly configured API URL
+    return settings.api_base_url
+
+
 @app.get("/auth/gmail/connect")
-async def gmail_connect(user_id: str) -> dict[str, str]:
+async def gmail_connect(request: Request, user_id: str) -> dict[str, str]:
     """Return Google OAuth2 consent URL for the user to visit."""
     if not settings.gmail_configured:
         raise HTTPException(503, "Gmail OAuth not configured — set GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET")
     from src.integrations.gmail import get_auth_url
-    return {"auth_url": get_auth_url(user_id)}
+    redirect_uri = f"{_api_base(request)}/auth/gmail/callback"
+    return {"auth_url": get_auth_url(user_id, redirect_uri=redirect_uri)}
 
 
 @app.get("/auth/gmail/callback")
-async def gmail_callback(code: str, state: str, error: str | None = None) -> RedirectResponse:
-    """Google redirects here after user grants access. Stores token, redirects to dashboard."""
+async def gmail_callback(request: Request, code: str, state: str, error: str | None = None) -> RedirectResponse:
+    """Google redirects here after user grants access. Stores token, redirects to frontend."""
+    # Frontend lives on a different Railway service — use APP_BASE_URL env var.
+    # API's own public URL is resolved from Railway's x-forwarded-host header.
+    frontend = settings.app_base_url
+    api_self = _api_base(request)
     if error:
-        return RedirectResponse(f"{settings.app_base_url}/integrations?error={error}")
+        return RedirectResponse(f"{frontend}/integrations?error={error}")
     try:
         from src.integrations.gmail import exchange_code
-        result = await exchange_code(code=code, user_id=state, db_get=get_db, upsert_row=upsert_row)
+        result = await exchange_code(
+            code=code, user_id=state, db_get=get_db, upsert_row=upsert_row,
+            redirect_uri=f"{api_self}/auth/gmail/callback",
+        )
         gmail_email = result.get("gmail_email", "")
         return RedirectResponse(
-            f"{settings.app_base_url}/integrations?gmail_connected=1&email={gmail_email}"
+            f"{frontend}/integrations?gmail_connected=1&email={gmail_email}"
         )
     except Exception as exc:
         log.error("Gmail OAuth callback error: %s", exc)
-        return RedirectResponse(f"{settings.app_base_url}/integrations?error=oauth_failed")
+        return RedirectResponse(f"{frontend}/integrations?error=oauth_failed")
 
 
 @app.delete("/auth/gmail/disconnect")
