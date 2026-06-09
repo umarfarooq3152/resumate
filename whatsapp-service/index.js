@@ -1,10 +1,11 @@
+'use strict';
 /**
- * WhatsApp Web sidecar service — multi-user edition.
+ * WhatsApp Web sidecar — multi-user edition (Baileys backend).
  *
- * Each Supabase user gets their own isolated WhatsApp session identified by
- * session_id (= Supabase user UUID).  Sessions are created lazily when
- * GET /qr?session_id=xxx is first called and are cleaned up automatically
- * when WhatsApp disconnects.
+ * Uses @whiskeysockets/baileys (pure WebSocket, no Chromium) for reliable
+ * cloud deployment. Each Supabase user gets an isolated session identified
+ * by session_id (= Supabase user UUID). Sessions are lazily created on the
+ * first GET /qr?session_id=xxx call.
  *
  * HTTP API:
  *   GET  /status?session_id=xxx  → { connected, phone, name, has_qr }
@@ -14,33 +15,36 @@
  *   GET  /health                 → { ok: true, sessions: N }
  */
 
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode');
+const {
+  makeWASocket,
+  useMultiFileAuthState,
+  DisconnectReason,
+  downloadMediaMessage,
+  isJidUser,
+  jidNormalizedUser,
+} = require('@whiskeysockets/baileys');
+const QRCode  = require('qrcode');
 const express = require('express');
-const cors = require('cors');
-const fetch = require('node-fetch');
+const cors    = require('cors');
+const fetch   = require('node-fetch');
+const pino    = require('pino');
+const path    = require('path');
+const fs      = require('fs');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const FASTAPI_URL  = process.env.FASTAPI_URL  || 'http://localhost:8000';
-const PORT         = parseInt(process.env.WA_SERVICE_PORT || process.env.PORT || '3001', 10);
-const LISTEN_MODE  = process.env.WA_LISTEN_MODE || 'self';
+const PORT         = parseInt(process.env.WA_SERVICE_PORT || process.env.PORT || '8080', 10);
 const MAX_SESSIONS = parseInt(process.env.WA_MAX_SESSIONS || '20', 10);
+const AUTH_DIR     = process.env.WA_AUTH_DIR || './.wwebjs_auth';
+
+const silentLogger = pino({ level: 'silent' });
 
 // ── Session registry ──────────────────────────────────────────────────────────
-//
-// sessions: Map<sessionId, SessionState>
-//
-// SessionState: {
-//   sessionId, client,
-//   qrDataUrl, isReady, connectedPhone, connectedName,
-//   selfLidId, processingChats, sentByBot,
-//   cleanupTimer   (setTimeout handle — clears slot after prolonged disconnect)
-// }
 
 const sessions = new Map();
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// ── Unicode normalizer (WhatsApp bold/italic math chars → ASCII) ──────────────
 
 const _mathToAscii = (() => {
   const map = new Map();
@@ -67,12 +71,14 @@ function normalizeUnicode(text) {
   let out = '';
   for (const ch of text) {
     const cp = ch.codePointAt(0);
-    if (_mathToAscii.has(cp))            out += String.fromCharCode(_mathToAscii.get(cp));
+    if (_mathToAscii.has(cp))              out += String.fromCharCode(_mathToAscii.get(cp));
     else if (cp >= 0xFF01 && cp <= 0xFF5E) out += String.fromCharCode(cp - 0xFF01 + 0x21);
-    else                                   out += ch;
+    else                                    out += ch;
   }
   return out;
 }
+
+// ── HR email extraction ───────────────────────────────────────────────────────
 
 const EMAIL_RE = /[\w.+'%-]+@[\w.-]+\.[a-zA-Z]{2,}/g;
 
@@ -111,111 +117,241 @@ const BOT_PREFIXES = [
   'DRY_RUN', '────',
 ];
 
-// ── Per-session dispatch helpers ──────────────────────────────────────────────
+// ── Bot-message deduplication ─────────────────────────────────────────────────
 
-function rememberBotMsg(state, msg) {
-  if (!msg?.id?._serialized) return;
-  state.sentByBot.set(msg.id._serialized, Date.now() + 60_000);
+function rememberBotMsg(state, msgId) {
+  if (!msgId) return;
+  state.sentByBot.set(msgId, Date.now() + 60_000);
   if (state.sentByBot.size > 200) {
     const now = Date.now();
     for (const [k, exp] of state.sentByBot) if (exp < now) state.sentByBot.delete(k);
   }
 }
 
-async function dispatchToFastAPI(state, chatId, body, hrEmail, isSelf) {
-  if (state.processingChats.has(chatId)) {
+// ── FastAPI dispatch ──────────────────────────────────────────────────────────
+
+async function dispatchToFastAPI(state, chatJid, body, hrEmail, isSelf) {
+  const { sessionId, sock } = state;
+
+  if (state.processingChats.has(chatJid)) {
     try {
-      const ping = await state.client.sendMessage(chatId, '⏳ Still processing your previous message, please wait…');
-      rememberBotMsg(state, ping);
+      const r = await sock.sendMessage(chatJid, { text: '⏳ Still processing your previous message, please wait…' });
+      rememberBotMsg(state, r?.key?.id);
     } catch (_) {}
     return;
   }
-  state.processingChats.add(chatId);
+  state.processingChats.add(chatJid);
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 90_000);
+  const timeoutId  = setTimeout(() => controller.abort(), 90_000);
   try {
     const res = await fetch(`${FASTAPI_URL}/webhooks/whatsapp-local`, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: chatId,
-        body,
-        hr_email: hrEmail,
-        is_self: isSelf,
-        session_id: state.sessionId,
-      }),
-      signal: controller.signal,
+      body:    JSON.stringify({ from: chatJid, body, hr_email: hrEmail, is_self: isSelf, session_id: sessionId }),
+      signal:  controller.signal,
     });
     clearTimeout(timeoutId);
-    if (!res.ok) { console.error(`[${state.sessionId}] FastAPI error:`, res.status, await res.text()); return; }
+    if (!res.ok) { console.error(`[${sessionId}] FastAPI error:`, res.status, await res.text()); return; }
     const data = await res.json();
-    if (data.reply) { const sent = await state.client.sendMessage(chatId, data.reply); rememberBotMsg(state, sent); }
+    if (data.reply) {
+      const r = await sock.sendMessage(chatJid, { text: data.reply });
+      rememberBotMsg(state, r?.key?.id);
+    }
   } catch (err) {
     clearTimeout(timeoutId);
     const isTimeout = err.name === 'AbortError';
-    console.error(`[${state.sessionId}] dispatch failed:`, isTimeout ? 'timeout (90 s)' : err.message);
+    console.error(`[${sessionId}] dispatch failed:`, isTimeout ? 'timeout (90s)' : err.message);
     try {
-      const errMsg = await state.client.sendMessage(chatId, `⚠️ Processing error: ${isTimeout ? 'Request timed out.' : err.message}`);
-      rememberBotMsg(state, errMsg);
+      const r = await sock.sendMessage(chatJid, { text: `⚠️ Processing error: ${isTimeout ? 'Request timed out.' : err.message}` });
+      rememberBotMsg(state, r?.key?.id);
     } catch (_) {}
   } finally {
-    state.processingChats.delete(chatId);
+    state.processingChats.delete(chatJid);
   }
 }
 
-async function dispatchVoiceToFastAPI(state, chatId, msg) {
-  if (state.processingChats.has(chatId)) {
+async function dispatchVoiceToFastAPI(state, chatJid, msg) {
+  const { sessionId, sock } = state;
+
+  if (state.processingChats.has(chatJid)) {
     try {
-      const ping = await state.client.sendMessage(chatId, '⏳ Still processing your previous message, please wait…');
-      rememberBotMsg(state, ping);
+      const r = await sock.sendMessage(chatJid, { text: '⏳ Still processing your previous message, please wait…' });
+      rememberBotMsg(state, r?.key?.id);
     } catch (_) {}
     return;
   }
-  state.processingChats.add(chatId);
-  let media;
-  try { media = await msg.downloadMedia(); } catch (e) {
-    console.error(`[${state.sessionId}] voice download failed:`, e.message);
-    state.processingChats.delete(chatId);
+  state.processingChats.add(chatJid);
+
+  let buffer;
+  try {
+    buffer = await downloadMediaMessage(msg, 'buffer', {});
+  } catch (e) {
+    console.error(`[${sessionId}] voice download failed:`, e.message);
+    state.processingChats.delete(chatJid);
     return;
   }
-  if (!media?.data) { state.processingChats.delete(chatId); return; }
+  if (!buffer?.length) { state.processingChats.delete(chatJid); return; }
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 90_000);
+  const timeoutId  = setTimeout(() => controller.abort(), 90_000);
   try {
+    const audioMsg  = msg.message?.audioMessage || msg.message?.pttMessage || {};
+    const mimetype  = audioMsg.mimetype || 'audio/ogg; codecs=opus';
     const res = await fetch(`${FASTAPI_URL}/webhooks/whatsapp-voice`, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: chatId,
-        audio_data: media.data,
-        mimetype: media.mimetype || 'audio/ogg; codecs=opus',
-        is_self: true,
-        session_id: state.sessionId,
-      }),
-      signal: controller.signal,
+      body:    JSON.stringify({ from: chatJid, audio_data: buffer.toString('base64'), mimetype, is_self: true, session_id: sessionId }),
+      signal:  controller.signal,
     });
     clearTimeout(timeoutId);
-    if (!res.ok) { console.error(`[${state.sessionId}] voice FastAPI error:`, res.status); return; }
+    if (!res.ok) { console.error(`[${sessionId}] voice FastAPI error:`, res.status); return; }
     const data = await res.json();
-    if (data.reply) { const sent = await state.client.sendMessage(chatId, data.reply); rememberBotMsg(state, sent); }
+    if (data.reply) {
+      const r = await sock.sendMessage(chatJid, { text: data.reply });
+      rememberBotMsg(state, r?.key?.id);
+    }
   } catch (err) {
     clearTimeout(timeoutId);
     try {
-      const errMsg = await state.client.sendMessage(chatId, '⚠️ Voice note processing failed. Please type your message instead.');
-      rememberBotMsg(state, errMsg);
+      const r = await sock.sendMessage(chatJid, { text: '⚠️ Voice note processing failed. Please type your message instead.' });
+      rememberBotMsg(state, r?.key?.id);
     } catch (_) {}
   } finally {
-    state.processingChats.delete(chatId);
+    state.processingChats.delete(chatJid);
   }
 }
 
 // ── Session factory ───────────────────────────────────────────────────────────
 
+async function startSocket(sessionId, state) {
+  const authPath = path.join(AUTH_DIR, sessionId);
+  fs.mkdirSync(authPath, { recursive: true });
+
+  const { state: authState, saveCreds } = await useMultiFileAuthState(authPath);
+
+  const sock = makeWASocket({
+    auth:               authState,
+    printQRInTerminal:  false,
+    logger:             silentLogger,
+    browser:            ['Resumate', 'Chrome', '120.0.0'],
+    syncFullHistory:    false,
+    markOnlineOnConnect: false,
+  });
+
+  state.sock = sock;
+
+  sock.ev.on('creds.update', saveCreds);
+
+  // ── Connection lifecycle ──────────────────────────────────────────────────
+
+  sock.ev.on('connection.update', async (update) => {
+    const { connection, lastDisconnect, qr } = update;
+
+    if (qr) {
+      try {
+        state.qrDataUrl = await QRCode.toDataURL(qr);
+        console.log(`[${sessionId}] QR code generated`);
+      } catch (e) {
+        console.error(`[${sessionId}] QR generation failed:`, e.message);
+      }
+    }
+
+    if (connection === 'close') {
+      state.isReady  = false;
+      state.qrDataUrl = null;
+      state.sock     = null;
+      const code = lastDisconnect?.error?.output?.statusCode;
+      const loggedOut = code === DisconnectReason.loggedOut;
+      console.log(`[${sessionId}] Disconnected (code=${code}) loggedOut=${loggedOut}`);
+
+      if (loggedOut) {
+        sessions.delete(sessionId);
+        fs.rmSync(authPath, { recursive: true, force: true });
+      } else {
+        // Reconnect after a short delay
+        state.cleanupTimer = setTimeout(() => {
+          state.cleanupTimer = null;
+          startSocket(sessionId, state).catch(e => console.error(`[${sessionId}] reconnect failed:`, e.message));
+        }, 5_000);
+      }
+    }
+
+    if (connection === 'open') {
+      if (state.cleanupTimer) { clearTimeout(state.cleanupTimer); state.cleanupTimer = null; }
+      state.isReady  = true;
+      state.qrDataUrl = null;
+
+      // sock.user.id is like "923277729002:0@s.whatsapp.net"
+      const rawId = sock.user?.id || '';
+      state.connectedPhone = rawId.split(':')[0].split('@')[0];
+      state.connectedName  = sock.user?.name || state.connectedPhone;
+      state.selfJid        = `${state.connectedPhone}@s.whatsapp.net`;
+
+      console.log(`[${sessionId}] Connected: ${state.connectedName} (+${state.connectedPhone})`);
+
+      try {
+        const r = await sock.sendMessage(state.selfJid, { text: '✅ Job agent online — send me an HR email to draft your application!' });
+        rememberBotMsg(state, r?.key?.id);
+        console.log(`[${sessionId}] startup ping sent to ${state.selfJid}`);
+      } catch (e) {
+        console.error(`[${sessionId}] startup ping failed:`, e.message);
+      }
+    }
+  });
+
+  // ── Incoming messages ─────────────────────────────────────────────────────
+
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    if (!state.isReady) return;
+    if (type !== 'notify') return;
+
+    for (const msg of messages) {
+      if (!msg.key?.fromMe) continue;
+
+      const remoteJid = msg.key.remoteJid || '';
+      const jidPhone  = remoteJid.split('@')[0].split(':')[0];
+      const isSelf    = jidPhone === state.connectedPhone;
+
+      const msgId = msg.key.id;
+      console.log(`[${sessionId}] message: jid=${remoteJid} isSelf=${isSelf} id=${msgId}`);
+
+      if (!isSelf) continue;
+
+      // Skip messages this bot sent
+      if (msgId && state.sentByBot.has(msgId)) {
+        state.sentByBot.delete(msgId);
+        continue;
+      }
+
+      // Audio / PTT
+      if (msg.message?.audioMessage || msg.message?.pttMessage) {
+        await dispatchVoiceToFastAPI(state, remoteJid, msg);
+        continue;
+      }
+
+      const body = (
+        msg.message?.conversation              ||
+        msg.message?.extendedTextMessage?.text ||
+        msg.message?.ephemeralMessage?.message?.conversation ||
+        ''
+      ).trim();
+
+      if (!body) continue;
+      if (BOT_PREFIXES.some(p => body.startsWith(p))) continue;
+
+      console.log(`[${sessionId}] dispatching: hr_email=${extractHrEmail(body)} body="${body.slice(0, 80)}"`);
+      await dispatchToFastAPI(state, remoteJid, body, extractHrEmail(body), true);
+    }
+  });
+
+  return sock;
+}
+
 function createSession(sessionId) {
   if (sessions.has(sessionId)) return sessions.get(sessionId);
-
   if (sessions.size >= MAX_SESSIONS) {
-    console.warn(`[session] MAX_SESSIONS (${MAX_SESSIONS}) reached, rejecting new session ${sessionId}`);
+    console.warn(`[session] MAX_SESSIONS (${MAX_SESSIONS}) reached, rejecting ${sessionId}`);
     return null;
   }
 
@@ -223,166 +359,23 @@ function createSession(sessionId) {
 
   const state = {
     sessionId,
-    client: null,
-    qrDataUrl: null,
-    isReady: false,
+    sock:          null,
+    qrDataUrl:     null,
+    isReady:       false,
     connectedPhone: null,
-    connectedName: null,
-    selfLidId: null,
+    connectedName:  null,
+    selfJid:       null,
     processingChats: new Set(),
-    sentByBot: new Map(),
-    cleanupTimer: null,
+    sentByBot:     new Map(),
+    cleanupTimer:  null,
   };
 
-  const client = new Client({
-    authStrategy: new LocalAuth({ clientId: sessionId, dataPath: './.wwebjs_auth' }),
-    puppeteer: {
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-      ],
-    },
-    webVersionCache: {
-      type: 'remote',
-      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.0.html',
-    },
-  });
-
-  state.client = client;
   sessions.set(sessionId, state);
-
-  // ── Events ──────────────────────────────────────────────────────────────────
-
-  client.on('loading_screen', (pct, msg) => {
-    process.stdout.write(`\r[${sessionId}] Loading... ${pct}% – ${msg}  `);
+  startSocket(sessionId, state).catch(e => {
+    console.error(`[${sessionId}] startSocket failed:`, e.message);
+    sessions.delete(sessionId);
   });
 
-  client.on('qr', async (qr) => {
-    state.qrDataUrl = await qrcode.toDataURL(qr);
-    state.isReady = false;
-    console.log(`\n[${sessionId}] QR code generated`);
-  });
-
-  client.on('authenticated', () => {
-    console.log(`[${sessionId}] Authenticated`);
-  });
-
-  client.on('ready', async () => {
-    state.isReady = true;
-    state.qrDataUrl = null;
-    state.connectedPhone = client.info.wid.user;
-    state.connectedName = client.info.pushname || state.connectedPhone;
-    if (state.cleanupTimer) { clearTimeout(state.cleanupTimer); state.cleanupTimer = null; }
-    console.log(`[${sessionId}] Connected: ${state.connectedName} (+${state.connectedPhone})`);
-
-    const selfId = client.info.wid._serialized;
-    try {
-      const chats = await client.getChats();
-      const selfChat = chats.find(c =>
-        !c.isGroup && (
-          c.id._serialized === selfId ||
-          c.id.user === selfId.split('@')[0] ||
-          c.name === state.connectedName
-        )
-      );
-      if (selfChat) { state.selfLidId = selfChat.id._serialized; }
-    } catch (e) {}
-
-    try {
-      const pingMsg = await client.sendMessage(selfId, '✅ Job agent online — send me an HR email to draft your application!');
-      rememberBotMsg(state, pingMsg);
-      console.log(`[${sessionId}] startup ping sent to ${selfId}`);
-    } catch (e) {
-      console.error(`[${sessionId}] startup ping failed:`, e.message);
-    }
-  });
-
-  client.on('disconnected', (reason) => {
-    state.isReady = false;
-    state.connectedPhone = null;
-    state.qrDataUrl = null;
-    console.log(`[${sessionId}] Disconnected: ${reason}`);
-    // Clean up after 5 minutes so LocalAuth data can persist for quick reconnect
-    state.cleanupTimer = setTimeout(() => {
-      sessions.delete(sessionId);
-      console.log(`[session] Removed session ${sessionId} after disconnect`);
-    }, 5 * 60 * 1000);
-  });
-
-  client.on('auth_failure', (msg) => {
-    state.isReady = false;
-    console.error(`[${sessionId}] Auth failure:`, msg);
-  });
-
-  // ── message_create — self-trigger ──────────────────────────────────────────
-
-  client.on('message_create', async (msg) => {
-    if (!state.isReady || !msg.fromMe) return;
-
-    const selfId = client.info.wid._serialized;
-    const toId   = (msg.to   || '').toString();
-    const fromId = (msg.from || '').toString();
-
-    // Discover @lid self-chat ID
-    if (!state.selfLidId && toId.endsWith('@lid') && toId === fromId) {
-      state.selfLidId = toId;
-      console.log(`[${sessionId}] @lid self-chat discovered: ${state.selfLidId}`);
-    }
-
-    const isSelfChat =
-      toId === selfId ||
-      (state.selfLidId && toId === state.selfLidId) ||
-      (toId.endsWith('@lid') && toId === fromId);
-
-    console.log(`[${sessionId}] message_create: to=${toId} selfId=${selfId} selfLid=${state.selfLidId} isSelf=${isSelfChat} body="${(msg.body||'').slice(0,60)}"`);
-
-    if (!isSelfChat) return;
-
-    const msgId = msg.id?._serialized;
-    if (msgId && state.sentByBot.has(msgId)) {
-      console.log(`[${sessionId}] skipping bot message ${msgId}`);
-      state.sentByBot.delete(msgId);
-      return;
-    }
-
-    if (msg.type === 'ptt' || msg.type === 'audio') {
-      await dispatchVoiceToFastAPI(state, selfId, msg);
-      return;
-    }
-
-    const body = (msg.body || '').trim();
-    if (!body) return;
-    if (BOT_PREFIXES.some(p => body.startsWith(p))) return;
-
-    console.log(`[${sessionId}] dispatching to FastAPI: hr_email=${extractHrEmail(body)} body="${body.slice(0,80)}"`);
-    await dispatchToFastAPI(state, selfId, body, extractHrEmail(body), true);
-  });
-
-  // ── message — inbound ──────────────────────────────────────────────────────
-
-  client.on('message', async (msg) => {
-    if (!state.isReady) return;
-    const selfId = client.info.wid._serialized;
-    const fromId = msg.from;
-    const body = (msg.body || '').trim();
-    if (!body) return;
-
-    const shouldProcess = (() => {
-      if (LISTEN_MODE === 'all') return true;
-      if (LISTEN_MODE === 'self') return fromId === selfId || msg.fromMe;
-      return LISTEN_MODE.split(',').map(s => s.trim()).includes(fromId);
-    })();
-
-    if (!shouldProcess) return;
-    if (msg.fromMe && BOT_PREFIXES.some(p => body.startsWith(p))) return;
-
-    await dispatchToFastAPI(state, fromId, body, extractHrEmail(body), msg.fromMe || fromId === selfId);
-  });
-
-  client.initialize();
   return state;
 }
 
@@ -399,46 +392,34 @@ app.get('/health', (_req, res) => {
 app.get('/status', (req, res) => {
   const sessionId = req.query.session_id;
   if (!sessionId) return res.status(400).json({ error: 'session_id required' });
-
   const s = sessions.get(sessionId);
   if (!s) return res.json({ connected: false, has_qr: false, session_id: sessionId });
-
-  res.json({
-    connected:    s.isReady,
-    phone:        s.connectedPhone,
-    name:         s.connectedName,
-    has_qr:       !!s.qrDataUrl,
-    listen_mode:  LISTEN_MODE,
-    session_id:   sessionId,
-  });
+  res.json({ connected: s.isReady, phone: s.connectedPhone, name: s.connectedName, has_qr: !!s.qrDataUrl, session_id: sessionId });
 });
 
 app.get('/qr', (req, res) => {
   const sessionId = req.query.session_id;
   if (!sessionId) return res.status(400).json({ error: 'session_id required' });
 
-  // Lazily create session on first QR request
   const s = createSession(sessionId);
   if (!s) return res.status(503).json({ error: 'max_sessions_reached' });
 
-  if (s.isReady)    return res.json({ qr: null, connected: true, phone: s.connectedPhone });
-  if (s.qrDataUrl)  return res.json({ qr: s.qrDataUrl, connected: false });
+  if (s.isReady)   return res.json({ qr: null, connected: true, phone: s.connectedPhone });
+  if (s.qrDataUrl) return res.json({ qr: s.qrDataUrl, connected: false });
   res.json({ qr: null, connected: false, loading: true });
 });
 
 app.post('/send', async (req, res) => {
-  const { session_id, to, body } = req.body;
+  const { session_id, to, body } = req.body || {};
   if (!session_id) return res.status(400).json({ error: 'session_id required' });
-
   const s = sessions.get(session_id);
   if (!s?.isReady) return res.status(503).json({ error: 'WhatsApp not connected for this session' });
   if (!to || !body) return res.status(400).json({ error: 'to and body required' });
-
   try {
-    await s.client.sendMessage(to, body);
+    await s.sock.sendMessage(to, { text: body });
     res.json({ ok: true });
   } catch (err) {
-    console.error(`[${session_id}] send error:`, err);
+    console.error(`[${session_id}] send error:`, err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -446,16 +427,13 @@ app.post('/send', async (req, res) => {
 app.post('/logout', async (req, res) => {
   const sessionId = req.query.session_id || req.body?.session_id;
   if (!sessionId) return res.status(400).json({ error: 'session_id required' });
-
   const s = sessions.get(sessionId);
   if (!s) return res.status(404).json({ error: 'session not found' });
-
   try {
-    await s.client.logout();
+    await s.sock.logout();
     sessions.delete(sessionId);
-    res.json({ ok: true, message: 'Logged out' });
-  } catch (err) {
-    // Force-remove even if logout call fails
+    res.json({ ok: true });
+  } catch {
     sessions.delete(sessionId);
     res.json({ ok: true, message: 'Session removed (logout may have partially failed)' });
   }
@@ -467,7 +445,7 @@ app.listen(PORT, () => {
 });
 
 process.on('SIGINT', async () => {
-  console.log('\nShutting down...');
-  await Promise.allSettled([...sessions.values()].map(s => s.client.destroy()));
+  console.log('\nShutting down…');
+  await Promise.allSettled([...sessions.values()].map(s => s.sock?.logout?.()));
   process.exit(0);
 });
