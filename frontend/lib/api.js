@@ -111,9 +111,9 @@ export const api = {
   getIntegrationsStatus: (userId) => req(`/integrations/status?user_id=${encodeURIComponent(userId)}`),
 
   // WhatsApp sidecar (proxied through FastAPI to avoid CORS)
-  getWhatsAppStatus: () => req('/whatsapp/status'),
-  getWhatsAppQr:     () => req('/whatsapp/qr'),
-  logoutWhatsApp:    () => req('/whatsapp/logout', { method: 'POST', body: '{}' }),
+  getWhatsAppStatus: (userId) => req(`/whatsapp/status?user_id=${encodeURIComponent(userId)}`),
+  getWhatsAppQr:     (userId) => req(`/whatsapp/qr?user_id=${encodeURIComponent(userId)}`),
+  logoutWhatsApp:    (userId) => req(`/whatsapp/logout?user_id=${encodeURIComponent(userId)}`, { method: 'POST', body: '{}' }),
 
   // Gmail OAuth
   getGmailStatus:    (userId) => req(`/auth/gmail/status?user_id=${encodeURIComponent(userId)}`),

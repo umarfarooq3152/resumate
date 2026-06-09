@@ -723,6 +723,7 @@ class WhatsAppMessage(BaseModel):
     body: str
     hr_email: str | None = None
     is_self: bool = False
+    session_id: str | None = None  # Supabase user_id — set by multi-user sidecar
 
     model_config = {"populate_by_name": True}
 
@@ -746,6 +747,7 @@ async def whatsapp_local_webhook(msg: WhatsAppMessage) -> dict[str, str]:
             insert_row=insert_row,
             select_rows=select_rows,
             upsert_row=upsert_row,
+            session_id=msg.session_id,
         )
     except Exception as exc:
         log.error("WhatsApp webhook unhandled error: %s", exc, exc_info=True)
@@ -762,6 +764,7 @@ class WhatsAppVoiceMessage(BaseModel):
     audio_data: str  # base64-encoded audio bytes
     mimetype: str = "audio/ogg; codecs=opus"
     is_self: bool = False
+    session_id: str | None = None  # Supabase user_id — set by multi-user sidecar
 
     model_config = {"populate_by_name": True}
 
@@ -844,6 +847,7 @@ async def whatsapp_voice_webhook(msg: WhatsAppVoiceMessage) -> dict[str, str]:
             insert_row=insert_row,
             select_rows=select_rows,
             upsert_row=upsert_row,
+            session_id=msg.session_id,
         )
     except Exception as exc:
         log.error("Voice webhook process_incoming error: %s", exc, exc_info=True)
@@ -859,23 +863,26 @@ async def whatsapp_voice_webhook(msg: WhatsAppVoiceMessage) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 @app.get("/whatsapp/status")
-async def whatsapp_status() -> dict[str, Any]:
+async def whatsapp_status(user_id: str) -> dict[str, Any]:
     from src.integrations.whatsapp import get_sidecar_status
-    return await get_sidecar_status()
+    return await get_sidecar_status(session_id=user_id)
 
 
 @app.get("/whatsapp/qr")
-async def whatsapp_qr() -> dict[str, Any]:
+async def whatsapp_qr(user_id: str) -> dict[str, Any]:
     from src.integrations.whatsapp import get_qr_code
-    return await get_qr_code()
+    return await get_qr_code(session_id=user_id)
 
 
 @app.post("/whatsapp/logout")
-async def whatsapp_logout() -> dict[str, Any]:
+async def whatsapp_logout(user_id: str) -> dict[str, Any]:
     try:
         import httpx as _httpx
         async with _httpx.AsyncClient(timeout=10) as c:
-            resp = await c.post(f"{settings.whatsapp_service_url}/logout")
+            resp = await c.post(
+                f"{settings.whatsapp_service_url}/logout",
+                params={"session_id": user_id},
+            )
             return resp.json()
     except Exception as exc:
         raise HTTPException(503, f"Sidecar unreachable: {exc}")
@@ -1228,7 +1235,7 @@ async def integrations_status(user_id: str) -> dict[str, Any]:
     pending_drafts = await select_rows("email_drafts", filters={"user_id": user_id, "status": "pending_approval"})
     db = await get_db()
     sent_count_resp = await db.table("email_drafts").select("id", count="exact").eq("user_id", user_id).eq("status", "sent").execute()
-    wa_status = await get_sidecar_status()
+    wa_status = await get_sidecar_status(session_id=user_id)
 
     return {
         "whatsapp": {

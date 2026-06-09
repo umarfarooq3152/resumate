@@ -59,12 +59,13 @@ export default function Integrations() {
   };
 
   const fetchQr = async () => {
+    if (!user) return;
     try {
-      const data = await api.getWhatsAppQr();
+      const data = await api.getWhatsAppQr(user.id);
       if (data.connected) {
         stopQrPoll();
         setQr(null);
-        if (user) await refreshStatus(user.id);
+        await refreshStatus(user.id);
       } else if (data.qr) {
         setQr(data.qr);
       }
@@ -111,11 +112,11 @@ export default function Integrations() {
   };
 
   const logoutWhatsApp = async () => {
-    if (!confirm('Log out WhatsApp? You will need to scan QR again.')) return;
+    if (!user || !confirm('Log out WhatsApp? You will need to scan QR again.')) return;
     try {
-      await api.logoutWhatsApp();
-      toast('WhatsApp logged out — restart the sidecar and scan QR again', 'info');
-      if (user) await refreshStatus(user.id);
+      await api.logoutWhatsApp(user.id);
+      toast('WhatsApp logged out — scan QR again to reconnect', 'info');
+      await refreshStatus(user.id);
     } catch (e) {
       toast(e.message, 'error');
     }

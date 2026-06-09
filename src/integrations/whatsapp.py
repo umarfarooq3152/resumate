@@ -26,34 +26,40 @@ log = logging.getLogger(__name__)
 # Sidecar helpers
 # ---------------------------------------------------------------------------
 
-async def send_whatsapp(to_chat_id: str, body: str) -> None:
-    """Send a WhatsApp message via the local Node.js sidecar."""
+async def send_whatsapp(to_chat_id: str, body: str, session_id: str = "") -> None:
+    """Send a WhatsApp message via the sidecar for the given session."""
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
                 f"{settings.whatsapp_service_url}/send",
-                json={"to": to_chat_id, "body": body},
+                json={"session_id": session_id, "to": to_chat_id, "body": body},
             )
             resp.raise_for_status()
     except Exception as exc:
-        log.error("WhatsApp send failed (is sidecar running?): %s", exc)
+        log.error("WhatsApp send failed: %s", exc)
 
 
-async def get_sidecar_status() -> dict[str, Any]:
-    """Return sidecar status: connected, phone, has_qr."""
+async def get_sidecar_status(session_id: str) -> dict[str, Any]:
+    """Return sidecar status for a specific user session."""
     try:
         async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(f"{settings.whatsapp_service_url}/status")
+            resp = await client.get(
+                f"{settings.whatsapp_service_url}/status",
+                params={"session_id": session_id},
+            )
             return resp.json()
     except Exception:
         return {"connected": False, "phone": None, "has_qr": False, "error": "sidecar_unreachable"}
 
 
-async def get_qr_code() -> dict[str, Any]:
-    """Return the current QR dataURL (None when already connected)."""
+async def get_qr_code(session_id: str) -> dict[str, Any]:
+    """Return the QR dataURL for a specific user session (creates session if new)."""
     try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(f"{settings.whatsapp_service_url}/qr")
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"{settings.whatsapp_service_url}/qr",
+                params={"session_id": session_id},
+            )
             return resp.json()
     except Exception:
         return {"qr": None, "connected": False, "error": "sidecar_unreachable"}
@@ -148,6 +154,7 @@ async def process_incoming(
     insert_row,
     select_rows,
     upsert_row,
+    session_id: str | None = None,
 ) -> str:
     """
     Process an incoming WhatsApp message.
@@ -292,21 +299,25 @@ async def _handle_new_job(
     from src.agents.job_extractor import JobExtractorAgent
     from src.llm.gemini import tailor_resume, write_application_email, get_relevant_resume_context
 
-    # Load profile — single-user: first profile; multi-user: match by phone
-    profiles = await select_rows("profiles")
+    # Load profile — use session_id (Supabase user_id) for direct lookup when available
+    if session_id:
+        profiles = await select_rows("profiles", filters={"user_id": session_id})
+    else:
+        # Fallback: match by phone number for legacy / local usage
+        all_profiles = await select_rows("profiles")
+        phone_digits = re.sub(r"\D", "", from_chat_id)
+        matched = [
+            p for p in all_profiles
+            if re.sub(r"\D", "", p.get("phone") or "")[-9:] == phone_digits[-9:]
+        ]
+        profiles = matched if matched else all_profiles[:1]
+
     if not profiles:
         return (
             "No profile found. Set up your profile at the dashboard first, "
             "then forward a job message."
         )
-
-    # Try to match by phone number (strip WhatsApp suffix @c.us / @g.us)
-    phone_digits = re.sub(r"\D", "", from_chat_id)
-    matched = [
-        p for p in profiles
-        if re.sub(r"\D", "", p.get("phone") or "")[-9:] == phone_digits[-9:]
-    ]
-    profile = matched[0] if matched else profiles[0]
+    profile = profiles[0]
 
     if not profile.get("resume_text"):
         return (
