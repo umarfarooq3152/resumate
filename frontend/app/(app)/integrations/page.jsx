@@ -96,7 +96,7 @@ export default function Integrations() {
   const startQrPoll = () => {
     if (qrPollRef.current) return;
     fetchQr();
-    qrPollRef.current = setInterval(fetchQr, 3_000);
+    qrPollRef.current = setInterval(fetchQr, 5_000);
   };
 
   const stopQrPoll = () => {
