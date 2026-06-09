@@ -341,21 +341,42 @@ async function startSocket(sessionId, state, retryCount = 0) {
         continue;
       }
 
+      // Debug: show message subtype
+      const msgTypes = Object.keys(msg.message || {}).join(',');
+      console.log(`[${sessionId}] msg types: ${msgTypes}`);
+
       // Audio / PTT
       if (msg.message?.audioMessage || msg.message?.pttMessage) {
         await dispatchVoiceToFastAPI(state, remoteJid, msg);
         continue;
       }
 
+      // Extract text from all known message shapes
+      const m = msg.message || {};
       const body = (
-        msg.message?.conversation              ||
-        msg.message?.extendedTextMessage?.text ||
-        msg.message?.ephemeralMessage?.message?.conversation ||
+        m.conversation                                             ||
+        m.extendedTextMessage?.text                                ||
+        m.ephemeralMessage?.message?.conversation                  ||
+        m.ephemeralMessage?.message?.extendedTextMessage?.text     ||
+        m.viewOnceMessage?.message?.conversation                   ||
+        m.viewOnceMessage?.message?.extendedTextMessage?.text      ||
+        m.documentWithCaptionMessage?.message?.documentMessage?.caption ||
+        m.imageMessage?.caption                                    ||
+        m.videoMessage?.caption                                    ||
+        m.documentMessage?.caption                                 ||
+        m.buttonsResponseMessage?.selectedDisplayText              ||
+        m.listResponseMessage?.title                               ||
+        m.templateButtonReplyMessage?.selectedDisplayText         ||
         ''
       ).trim();
 
+      console.log(`[${sessionId}] body="${body.slice(0, 80)}" empty=${!body}`);
+
       if (!body) continue;
-      if (BOT_PREFIXES.some(p => body.startsWith(p))) continue;
+      if (BOT_PREFIXES.some(p => body.startsWith(p))) {
+        console.log(`[${sessionId}] skipping bot-prefix message`);
+        continue;
+      }
 
       console.log(`[${sessionId}] dispatching: hr_email=${extractHrEmail(body)} body="${body.slice(0, 80)}"`);
       await dispatchToFastAPI(state, remoteJid, body, extractHrEmail(body), true);
