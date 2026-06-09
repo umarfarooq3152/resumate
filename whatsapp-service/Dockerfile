@@ -13,5 +13,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 COPY . .
 
+ENV PORT=3001
 EXPOSE 3001
-CMD ["node", "index.js"]
+CMD ["sh", "-c", "PORT=${PORT:-3001} node index.js"]

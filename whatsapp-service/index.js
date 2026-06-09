@@ -32,7 +32,7 @@ const fetch = require('node-fetch');
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
-const PORT = parseInt(process.env.WA_SERVICE_PORT || '3001', 10);
+const PORT = parseInt(process.env.WA_SERVICE_PORT || process.env.PORT || '3001', 10);
 
 // Which chats to process for the 'message' event (non-self messages).
 // 'all' = every chat; 'self' = only your own messages; or comma-separated phone IDs.
