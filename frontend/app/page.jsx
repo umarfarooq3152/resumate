@@ -1,9 +1,10 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import SplineHero from '../components/SplineHero';
 import {
-  Bot, Search, Target, FileEdit, ShieldCheck,
+  Search, Target, FileEdit, ShieldCheck,
   ClipboardList, BarChart3, ArrowRight, CheckCircle2,
-  ChevronRight, Lock, Star, Database, Cpu,
+  Lock, Database, Cpu,
 } from 'lucide-react';
 
 const C = '#22d3ee';   // cyan
@@ -54,17 +55,14 @@ export default function Landing() {
     <div style={{ background: '#08090f', fontFamily: "'Inter',system-ui,sans-serif", color: '#fff', overflowX: 'hidden' }}>
 
       {/* Navbar */}
-      <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 32px' }}>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={{ width: 32, height: 32, background: `linear-gradient(135deg,${C},${P})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 16px ${C}55` }}>
-            <Bot size={16} color="#fff" />
-          </div>
-          <span style={{ fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>Resumate</span>
+      <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 32px', background: 'rgba(8,9,15,0.7)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <Link href="/" style={{ textDecoration: 'none' }}>
+          <Image src="/logo.png" alt="RESUMATE" width={130} height={71} priority style={{ height: 36, width: 'auto' }} />
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Link href="/login" style={{ fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.45)', padding: '6px 14px', textDecoration: 'none' }}>Sign in</Link>
           <Link href="/register" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: `linear-gradient(135deg,${C},${P})`, color: '#08090f', fontWeight: 700, fontSize: 14, textDecoration: 'none', boxShadow: `0 0 24px ${C}44` }}>
-            Get started <ChevronRight size={14} />
+            Get started <ArrowRight size={14} />
           </Link>
         </div>
       </nav>
@@ -224,12 +222,7 @@ export default function Landing() {
       {/* Footer */}
       <footer style={{ ...divider, padding: '40px 32px' }}>
         <div style={{ maxWidth: 1120, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 28, height: 28, background: `linear-gradient(135deg,${C},${P})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Bot size={14} color="#fff" />
-            </div>
-            <span style={{ fontWeight: 800, letterSpacing: '-0.02em' }}>Resumate</span>
-          </div>
+          <Image src="/logo.png" alt="RESUMATE" width={110} height={60} style={{ height: 28, width: 'auto' }} />
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>Built with Next.js · Supabase · Gemini AI · Adzuna</p>
           <div style={{ display: 'flex', gap: 24 }}>
             <Link href="/login"    style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textDecoration: 'none' }}>Sign in</Link>
