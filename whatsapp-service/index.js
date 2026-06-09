@@ -284,7 +284,13 @@ async function startSocket(sessionId, state, retryCount = 0) {
           startSocket(sessionId, state, retryCount + 1).catch(e => console.error(`[${sessionId}] reconnect failed:`, e.message));
         }, delay);
       } else {
-        // Reconnect with exponential backoff
+        // If this session never connected and has hit too many attempts,
+        // wipe stale auth so the next retry produces a fresh QR
+        if (!state.connectedPhone && retryCount >= 10) {
+          console.log(`[${sessionId}] Never connected after ${retryCount} attempts — clearing auth for fresh start`);
+          fs.rmSync(authPath, { recursive: true, force: true });
+        }
+        // Reconnect with exponential backoff (cap 60s)
         const delay = Math.min(3_000 * Math.pow(2, retryCount), 60_000);
         console.log(`[${sessionId}] Reconnecting in ${delay}ms…`);
         state.cleanupTimer = setTimeout(() => {
@@ -298,6 +304,7 @@ async function startSocket(sessionId, state, retryCount = 0) {
       if (state.cleanupTimer) { clearTimeout(state.cleanupTimer); state.cleanupTimer = null; }
       state.isReady  = true;
       state.qrDataUrl = null;
+      retryCount = 0;  // reset so a brief drop reconnects fast
 
       // sock.user.id is like "923277729002:0@s.whatsapp.net"
       const rawId = sock.user?.id || '';
