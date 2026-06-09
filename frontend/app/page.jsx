@@ -137,47 +137,12 @@ export default function Landing() {
       {/* ─── Hero ─────────────────────────────────────────────────── */}
       <section className="relative h-screen min-h-[600px] overflow-hidden">
         {/* Spline 3D background */}
-        <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 z-0">
           <Spline scene="https://prod.spline.design/MWoEf6V1fJrKDXJ4/scene.splinecode" />
         </div>
 
-        {/* gradient overlay so text stays readable */}
-        <div className="absolute inset-0 z-10 bg-gradient-to-b from-[#0a0a0f]/40 via-transparent to-[#0a0a0f]/80 pointer-events-none" />
-
-        {/* Hero content */}
-        <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-xs font-semibold text-indigo-400 mb-8 tracking-wide backdrop-blur-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-            Powered by Gemini 2.5 Flash + Adzuna
-          </div>
-
-          <h1 className="text-[3.25rem] md:text-7xl font-black text-white leading-[1.04] tracking-tighter mb-6 drop-shadow-2xl">
-            Land your dream job
-            <br />
-            <span className="text-indigo-400">on autopilot.</span>
-          </h1>
-
-          <p className="text-[1.05rem] md:text-xl text-slate-300 leading-relaxed mb-10 max-w-xl mx-auto drop-shadow-lg">
-            An AI agent that discovers jobs, scores them against your resume,
-            tailors documents, and submits — while you approve every decision.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/register"
-              className="flex items-center gap-2 px-7 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-900/50 text-sm w-full sm:w-auto justify-center group">
-              Start for free
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-            <Link href="/login"
-              className="flex items-center gap-2 px-7 py-3.5 text-slate-300 font-semibold rounded-xl border border-white/20 hover:border-white/40 hover:text-white hover:bg-white/[0.08] backdrop-blur-sm transition-all text-sm w-full sm:w-auto justify-center">
-              <Play className="w-3.5 h-3.5" />
-              View dashboard
-            </Link>
-          </div>
-        </div>
-
         {/* scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 opacity-40">
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 opacity-40 pointer-events-none">
           <div className="w-px h-8 bg-gradient-to-b from-transparent to-white" />
           <span className="text-[10px] text-white uppercase tracking-widest">Scroll</span>
         </div>
