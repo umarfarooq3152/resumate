@@ -8,6 +8,7 @@ import { useToast } from '../../../components/Toast';
 import {
   RefreshCw, ExternalLink, Bot, Search, Loader2, MapPin, Globe,
   Zap, MousePointer, FileText, X, Calendar, ChevronDown,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
 /* ── Constants ──────────────────────────────────────────── */
@@ -26,6 +27,8 @@ const DAYS_OPTIONS = [
   { value: 14, label: '2 weeks' },
   { value: 30, label: '30 days' },
 ];
+
+const PAGE_SIZE = 10;
 
 /* ── Helpers ────────────────────────────────────────────── */
 
@@ -59,40 +62,46 @@ function relativeTime(iso) {
 export default function Jobs() {
   const toast = useToast();
   const [jobs, setJobs]           = useState([]);
+  const [total, setTotal]         = useState(0);
   const [loading, setLoading]     = useState(true);
   const [selected, setSelected]   = useState(null);
   const [tab, setTab]             = useState('all');
   const [keywords, setKeywords]   = useState('');
   const [location, setLocation]   = useState('');
   const [days, setDays]           = useState(7);
+  const [page, setPage]           = useState(0);
   const [discovering, setDiscover] = useState(false);
   const [matching, setMatching]   = useState(null);
   const [profileId, setProfileId] = useState(null);
   const [lastSources, setSources] = useState([]);
   const pollRef = useRef(null);
 
-  const load = useCallback(async (t, loc, kw, d) => {
+  // Stable ref holds the latest query params so load() never has stale closures
+  const qRef = useRef({ tab: 'all', location: '', keywords: '', days: 7, page: 0 });
+
+  const load = useCallback(async (overrides = {}) => {
+    const q = { ...qRef.current, ...overrides };
+    qRef.current = q;
     setLoading(true);
     try {
-      const data = await api.getJobs({
-        tab:      t   ?? tab,
-        location: loc ?? location,
-        keywords: kw  ?? keywords,
-        days:     d   ?? days,
+      const res = await api.getJobs({
+        tab:      q.tab,
+        location: q.location,
+        keywords: q.keywords,
+        days:     q.days,
+        limit:    PAGE_SIZE,
+        offset:   q.page * PAGE_SIZE,
       });
-      setJobs(data ?? []);
-      // keep selected in sync if still in list
-      if (selected) {
-        const fresh = (data ?? []).find(j => j.id === selected.id);
-        if (fresh) setSelected(fresh);
-      }
+      setJobs(res.jobs ?? []);
+      setTotal(res.total ?? 0);
+      setSelected(null);
     } catch (e) {
       toast(e.message, 'error');
     }
     setLoading(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, location, keywords, days]);
+  }, [toast]);
 
+  // Mount: fetch profile to pre-fill filters, then load once
   useEffect(() => {
     (async () => {
       const { data: { user } } = await getSupabase().auth.getUser();
@@ -106,18 +115,37 @@ export default function Jobs() {
             const loc = p.target_location ?? '';
             setKeywords(kw);
             setLocation(loc);
-            load('all', loc, kw, 7);
+            load({ tab: 'all', location: loc, keywords: kw, days: 7, page: 0 });
             return;
           }
-        } catch {}
+        } catch { /* no profile yet */ }
       }
-      load();
+      load({ tab: 'all', location: '', keywords: '', days: 7, page: 0 });
     })();
     return () => clearInterval(pollRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [load]);
 
-  useEffect(() => { load(); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  const handleTabChange = (newTab) => {
+    setTab(newTab);
+    setPage(0);
+    load({ tab: newTab, page: 0 });
+  };
+
+  const handleDaysChange = (d) => {
+    setDays(d);
+    setPage(0);
+    load({ days: d, page: 0 });
+  };
+
+  const handleSearch = () => {
+    setPage(0);
+    load({ location, keywords, page: 0 });
+  };
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    load({ page: newPage });
+  };
 
   const handleDiscover = async () => {
     setDiscover(true);
@@ -129,7 +157,8 @@ export default function Jobs() {
       let ticks = 0;
       clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
-        await load();
+        await load({ page: 0 });
+        setPage(0);
         if (++ticks >= 12) { clearInterval(pollRef.current); pollRef.current = null; }
       }, 4000);
     } catch (e) { toast(e.message, 'error'); }
@@ -141,10 +170,12 @@ export default function Jobs() {
     try {
       await api.runMatching({ profile_id: profileId });
       toast('Matching started — score will appear in a few seconds', 'info');
-      setTimeout(() => load(), 3500);
+      setTimeout(() => load({}), 3500);
     } catch (e) { toast(e.message, 'error'); }
     setMatching(null);
   };
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-5 h-full">
@@ -153,9 +184,11 @@ export default function Jobs() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black t-h tracking-tight">Jobs</h1>
-          <p className="text-sm t-b mt-0.5">Browse discovered jobs across all sources</p>
+          <p className="text-sm t-b mt-0.5">
+            {total > 0 ? `${total} jobs found` : 'Browse discovered jobs across all sources'}
+          </p>
         </div>
-        <button onClick={() => load()} className="btn-icon"><RefreshCw className="w-4 h-4" /></button>
+        <button onClick={() => load({})} className="btn-icon"><RefreshCw className="w-4 h-4" /></button>
       </div>
 
       {/* Filter bar */}
@@ -170,7 +203,7 @@ export default function Jobs() {
               className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-white"
               value={keywords}
               onChange={e => setKeywords(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleDiscover()}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
               placeholder="Keywords (e.g. Python, backend)"
             />
           </div>
@@ -184,7 +217,7 @@ export default function Jobs() {
               className="flex-1 text-sm bg-transparent outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-white"
               value={location}
               onChange={e => setLocation(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleDiscover()}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
               placeholder="Location (e.g. Lahore)"
             />
           </div>
@@ -194,7 +227,7 @@ export default function Jobs() {
             <Calendar className="absolute left-3 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
             <select
               value={days}
-              onChange={e => { const d = Number(e.target.value); setDays(d); load(tab, undefined, undefined, d); }}
+              onChange={e => handleDaysChange(Number(e.target.value))}
               className="pl-8 pr-8 py-2 text-sm border bg-white border-slate-200 text-slate-700 cursor-pointer outline-none appearance-none
                 dark:bg-transparent dark:border-white/10 dark:text-slate-300"
             >
@@ -203,7 +236,16 @@ export default function Jobs() {
             <ChevronDown className="absolute right-2.5 w-3 h-3 text-slate-400 pointer-events-none" />
           </div>
 
-          {/* Find Jobs */}
+          {/* Search */}
+          <button
+            onClick={handleSearch}
+            className="flex-none flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-bold
+              hover:bg-indigo-500 transition-colors cursor-pointer"
+          >
+            <Search className="w-3.5 h-3.5" />Search
+          </button>
+
+          {/* Find Jobs (discovery) */}
           <button
             onClick={handleDiscover}
             disabled={discovering}
@@ -212,7 +254,7 @@ export default function Jobs() {
           >
             {discovering
               ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Scanning…</>
-              : <><Search className="w-3.5 h-3.5" />Find Jobs</>}
+              : <><Globe className="w-3.5 h-3.5" />Find Jobs</>}
           </button>
         </div>
 
@@ -228,7 +270,7 @@ export default function Jobs() {
       {/* Tabs */}
       <div className="tabs-bar">
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
+          <button key={t.id} onClick={() => handleTabChange(t.id)}
             className={clsx('px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer',
               tab === t.id ? 'tab-on' : 'tab-off')}>
             {t.label}
@@ -242,30 +284,78 @@ export default function Jobs() {
       ) : jobs.length === 0 ? (
         <EmptyState tab={tab} />
       ) : (
-        <div className="flex gap-4 items-start min-h-0 flex-1">
-          {/* List */}
-          <div className={clsx('flex flex-col gap-2 overflow-y-auto', selected ? 'hidden lg:flex lg:w-96 lg:shrink-0' : 'w-full')}>
-            {jobs.map(job => (
-              <JobCard
-                key={job.id}
-                job={job}
-                selected={selected?.id === job.id}
-                onClick={() => setSelected(prev => prev?.id === job.id ? null : job)}
-                onMatch={() => handleRunMatch(job)}
-                matching={matching === job.id}
-              />
-            ))}
+        <div className="flex flex-col gap-3 flex-1 min-h-0">
+          <div className="flex gap-4 items-start min-h-0 flex-1">
+            {/* List */}
+            <div className={clsx('flex flex-col gap-2 overflow-y-auto', selected ? 'hidden lg:flex lg:w-96 lg:shrink-0' : 'w-full')}>
+              {jobs.map(job => (
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  selected={selected?.id === job.id}
+                  onClick={() => setSelected(prev => prev?.id === job.id ? null : job)}
+                  onMatch={() => handleRunMatch(job)}
+                  matching={matching === job.id}
+                />
+              ))}
+            </div>
+
+            {/* Detail panel */}
+            {selected && (
+              <div className="flex-1 min-w-0">
+                <JobDetail
+                  job={selected}
+                  onClose={() => setSelected(null)}
+                  onMatch={() => handleRunMatch(selected)}
+                  matching={matching === selected.id}
+                />
+              </div>
+            )}
           </div>
 
-          {/* Detail panel */}
-          {selected && (
-            <div className="flex-1 min-w-0">
-              <JobDetail
-                job={selected}
-                onClose={() => setSelected(null)}
-                onMatch={() => handleRunMatch(selected)}
-                matching={matching === selected.id}
-              />
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-white/[0.06]">
+              <span className="text-xs t-m">
+                Page {page + 1} of {totalPages} · {total} jobs
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page === 0}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium border border-slate-200 dark:border-white/10
+                    text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/[0.06]
+                    disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="w-3 h-3" />Prev
+                </button>
+                {/* Page number pills */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const start = Math.max(0, Math.min(page - 2, totalPages - 5));
+                  const p = start + i;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => handlePageChange(p)}
+                      className={clsx(
+                        'w-7 h-7 text-xs font-medium border transition-colors cursor-pointer',
+                        p === page
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/[0.06]',
+                      )}
+                    >{p + 1}</button>
+                  );
+                })}
+                <button
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page >= totalPages - 1}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium border border-slate-200 dark:border-white/10
+                    text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/[0.06]
+                    disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                  Next<ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -479,9 +569,9 @@ function JobDetail({ job, onClose, onMatch, matching }) {
 
 function EmptyState({ tab }) {
   const msgs = {
-    all:    'No jobs found. Enter keywords and a location above, then click Find Jobs.',
-    auto:   'No auto-applicable jobs found yet. Run discovery with your keywords to find Google Forms, Greenhouse, or Lever postings.',
-    online: 'No online-apply jobs in this period. Try widening the date range or adding more keywords.',
+    all:    'No jobs found. Enter keywords and a location above, then click Search.',
+    auto:   'No auto-applicable jobs found yet. Run Find Jobs with your keywords.',
+    online: 'No online-apply jobs in this period. Try widening the date range.',
     manual: 'No manual-apply-only jobs found.',
   };
   return (

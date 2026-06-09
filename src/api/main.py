@@ -302,13 +302,14 @@ async def upload_resume(
 
 @app.get("/jobs")
 async def list_jobs(
-    tab: str = "all",          # all | auto | online | manual
-    days: int = 7,             # only show jobs posted/discovered within N days
-    location: str = "",        # optional location filter (substring match)
-    keywords: str = "",        # optional keyword filter (title/company)
-    limit: int = 200,
-) -> list[dict[str, Any]]:
-    """List jobs with tab, date, location and keyword filters."""
+    tab: str = "all",
+    days: int = 7,
+    location: str = "",
+    keywords: str = "",
+    limit: int = 10,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """List jobs with pagination, tab, date, location and keyword filters."""
     from datetime import timedelta
     db = await get_db()
 
@@ -316,7 +317,8 @@ async def list_jobs(
     query = db.table("jobs").select(
         "id,source,title,company,location,apply_url,apply_method,apply_type,"
         "posted_at,discovered_at,description,"
-        "matches(score,decision,strengths,gaps,reasoning)"
+        "matches(score,decision,strengths,gaps,reasoning)",
+        count="exact",
     )
 
     # Tab → apply_type filter
@@ -324,7 +326,7 @@ async def list_jobs(
     if tab in type_map:
         query = query.eq("apply_type", type_map[tab])
 
-    # Date filter — use discovered_at (always present)
+    # Date filter
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     query = query.gte("discovered_at", cutoff)
 
@@ -332,22 +334,20 @@ async def list_jobs(
     if location:
         query = query.ilike("location", f"%{location.strip()}%")
 
-    # Keyword filter — split comma-separated list and OR across title+company
+    # Keyword filter
     if keywords:
         kw_list = [k.strip() for k in keywords.split(",") if k.strip()][:8]
         if kw_list:
             parts = [f"title.ilike.%{kw}%,company.ilike.%{kw}%" for kw in kw_list]
             query = query.or_(",".join(parts))
 
-    query = query.order("discovered_at", desc=True).limit(limit)
-
-    resp = await query.execute()
+    resp = await query.order("discovered_at", desc=True).range(offset, offset + limit - 1).execute()
     jobs = resp.data or []
+    total = resp.count or 0
 
     # Flatten nested match into top-level score fields
     for j in jobs:
         raw = j.pop("matches", None)
-        # Supabase may return a dict (one-to-one) or list (one-to-many)
         if isinstance(raw, dict):
             match_list = [raw] if raw else []
         else:
@@ -360,7 +360,7 @@ async def list_jobs(
         j["reasoning"] = m.get("reasoning")
         j["matched"]   = bool(m)
 
-    return jobs
+    return {"jobs": jobs, "total": total, "offset": offset, "limit": limit}
 
 
 @app.get("/jobs/{job_id}")

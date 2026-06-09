@@ -69,10 +69,10 @@ export const api = {
     return res.json();
   },
 
-  // Jobs & scored matches
+  // Jobs & scored matches — returns { jobs, total, offset, limit }
   getJobs: (params = {}) => {
     const qs = new URLSearchParams(
-      Object.entries({ limit: 200, ...params }).filter(([, v]) => v != null && v !== '')
+      Object.entries({ limit: 10, offset: 0, ...params }).filter(([, v]) => v != null && v !== '')
     ).toString();
     return req(`/jobs?${qs}`);
   },
