@@ -282,6 +282,7 @@ async def process_incoming(
         db_get=db_get,
         insert_row=insert_row,
         select_rows=select_rows,
+        session_id=session_id,
     )
 
 
@@ -296,6 +297,7 @@ async def _handle_new_job(
     db_get,
     insert_row,
     select_rows,
+    session_id: str | None = None,
 ) -> str:
     from src.agents.job_extractor import JobExtractorAgent
     from src.llm.gemini import tailor_resume, write_application_email, get_relevant_resume_context
