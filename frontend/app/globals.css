@@ -17,6 +17,11 @@
 
 ::selection { background: rgba(99,102,241,.3); color: white; }
 
+/* Auth right panel — show on large screens */
+@media (min-width: 1024px) {
+  .auth-right-panel { display: flex !important; }
+}
+
 /* Spline fills its section */
 section > div, section > div > canvas { width: 100% !important; height: 100% !important; }
 
