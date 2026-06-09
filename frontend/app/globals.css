@@ -17,6 +17,9 @@
 
 ::selection { background: rgba(99,102,241,.3); color: white; }
 
+/* Spline canvas fills its container */
+canvas { display: block; width: 100% !important; height: 100% !important; }
+
 @layer components {
 
   /* ── Form input — works in both themes ──────────────── */

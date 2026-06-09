@@ -135,12 +135,11 @@ export default function Landing() {
       </nav>
 
       {/* ─── Hero ─────────────────────────────────────────────────── */}
-      <section className="relative h-screen min-h-[600px] overflow-hidden">
-        {/* Spline 3D background */}
-        <div className="absolute inset-0 z-0">
-          <Spline scene="https://prod.spline.design/0sWxrv4yIUaXMQb6/scene.splinecode" />
-        </div>
-
+      <section className="relative w-full h-screen overflow-hidden">
+        <Spline
+          scene="https://prod.spline.design/0sWxrv4yIUaXMQb6/scene.splinecode"
+          style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
+        />
         {/* scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 opacity-40 pointer-events-none">
           <div className="w-px h-8 bg-gradient-to-b from-transparent to-white" />
