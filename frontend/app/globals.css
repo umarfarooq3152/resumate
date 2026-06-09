@@ -17,8 +17,8 @@
 
 ::selection { background: rgba(99,102,241,.3); color: white; }
 
-/* Spline canvas fills its container */
-canvas { display: block; width: 100% !important; height: 100% !important; }
+/* Spline fills its section */
+section > div, section > div > canvas { width: 100% !important; height: 100% !important; }
 
 @layer components {
 

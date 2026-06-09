@@ -71,12 +71,8 @@ export default function Landing() {
       </nav>
 
       {/* ─── Hero (Spline) ───────────────────────────────────────────── */}
-      <section className="relative w-full h-screen overflow-hidden">
+      <section style={{ width: '100vw', height: '100vh' }}>
         <SplineHero />
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 pointer-events-none" style={{ opacity: 0.4 }}>
-          <div className="w-px h-8" style={{ background: 'linear-gradient(to bottom, transparent, #22d3ee)' }} />
-          <span className="text-[10px] text-cyan-400 uppercase tracking-widest">Scroll</span>
-        </div>
       </section>
 
       {/* ─── Stats ───────────────────────────────────────────────────── */}
