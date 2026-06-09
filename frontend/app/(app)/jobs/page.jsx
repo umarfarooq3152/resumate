@@ -102,6 +102,7 @@ export default function Jobs() {
   }, [toast]);
 
   // Mount: fetch profile to pre-fill filters, then load once
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     (async () => {
       const { data: { user } } = await getSupabase().auth.getUser();
@@ -123,7 +124,7 @@ export default function Jobs() {
       load({ tab: 'all', location: '', keywords: '', days: 7, page: 0 });
     })();
     return () => clearInterval(pollRef.current);
-  }, [load]);
+  }, []); // run once on mount — load reads params from qRef so no stale closure
 
   const handleTabChange = (newTab) => {
     setTab(newTab);
