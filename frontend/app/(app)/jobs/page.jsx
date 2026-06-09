@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import clsx from 'clsx';
+import Image from 'next/image';
 import { api } from '../../../lib/api';
 import { getSupabase } from '../../../lib/supabase';
 import Spinner from '../../../components/Spinner';
@@ -8,7 +9,7 @@ import { useToast } from '../../../components/Toast';
 import {
   RefreshCw, ExternalLink, Bot, Search, Loader2, MapPin, Globe,
   Zap, MousePointer, FileText, X, Calendar, ChevronDown,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Building2,
 } from 'lucide-react';
 
 /* ── Constants ──────────────────────────────────────────── */
@@ -57,6 +58,43 @@ function relativeTime(iso) {
   } catch { return null; }
 }
 
+function getDomain(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); }
+  catch { return null; }
+}
+
+/* ── CompanyLogo ─────────────────────────────────────────── */
+
+function CompanyLogo({ company, applyUrl, size = 48 }) {
+  const [err, setErr] = useState(false);
+  const domain = applyUrl ? getDomain(applyUrl) : null;
+  const letter = (company ?? '?')[0].toUpperCase();
+
+  if (domain && !err) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+        alt={company ?? ''}
+        width={size}
+        height={size}
+        onError={() => setErr(true)}
+        className="rounded-lg object-contain bg-white dark:bg-white/[0.06] border border-slate-100 dark:border-white/10"
+        style={{ width: size, height: size, minWidth: size }}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="rounded-lg flex items-center justify-center bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-bold text-base shrink-0"
+      style={{ width: size, height: size, minWidth: size }}
+    >
+      {domain ? <Building2 className="w-5 h-5" /> : letter}
+    </div>
+  );
+}
+
 /* ── Page ───────────────────────────────────────────────── */
 
 export default function Jobs() {
@@ -74,16 +112,14 @@ export default function Jobs() {
   const [matching, setMatching]   = useState(null);
   const [profileId, setProfileId] = useState(null);
   const [lastSources, setSources] = useState([]);
-  const pollRef = useRef(null);
 
-  // Stable ref holds the latest query params so load() never has stale closures
+  // Stable ref — holds current query params so load() never reads stale state
   const qRef = useRef({ tab: 'all', location: '', keywords: '', days: 7, page: 0 });
 
-  // silent=true → update jobs list in background without showing the full-page spinner
-  const load = useCallback(async (overrides = {}, silent = false) => {
+  const load = useCallback(async (overrides = {}) => {
     const q = { ...qRef.current, ...overrides };
     qRef.current = q;
-    if (!silent) setLoading(true);
+    setLoading(true);
     try {
       const res = await api.getJobs({
         tab:      q.tab,
@@ -95,14 +131,13 @@ export default function Jobs() {
       });
       setJobs(res.jobs ?? []);
       setTotal(res.total ?? 0);
-      if (!silent) setSelected(null);
     } catch (e) {
-      if (!silent) toast(e.message, 'error');
+      toast(e.message, 'error');
     }
-    if (!silent) setLoading(false);
+    setLoading(false);
   }, [toast]);
 
-  // Mount: fetch profile to pre-fill filters, then load once
+  // Mount only: load profile to pre-fill filters, then fetch once
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     (async () => {
@@ -124,58 +159,54 @@ export default function Jobs() {
       }
       load({ tab: 'all', location: '', keywords: '', days: 7, page: 0 });
     })();
-    return () => clearInterval(pollRef.current);
-  }, []); // run once on mount — load reads params from qRef so no stale closure
+  }, []); // runs once — no auto-refresh after this
 
   const handleTabChange = (newTab) => {
     setTab(newTab);
     setPage(0);
+    setSelected(null);
     load({ tab: newTab, page: 0 });
   };
 
   const handleDaysChange = (d) => {
     setDays(d);
     setPage(0);
+    setSelected(null);
     load({ days: d, page: 0 });
   };
 
   const handleSearch = () => {
     setPage(0);
+    setSelected(null);
     load({ location, keywords, page: 0 });
   };
 
   const handlePageChange = (newPage) => {
     setPage(newPage);
+    setSelected(null);
     load({ page: newPage });
   };
 
+  // Discovery just kicks off the backend job — no auto-polling
   const handleDiscover = async () => {
     setDiscover(true);
     try {
       const kw = keywords.split(',').map(s => s.trim()).filter(Boolean);
       const result = await api.runDiscovery({ keywords: kw, location: location.trim(), profile_id: profileId, days });
       setSources(result.sources || []);
-      toast(result.message || 'Discovery started — new jobs will appear shortly', 'info');
-      // Poll silently every 8s (no spinner) — 5 ticks = 40s
-      let ticks = 0;
-      clearInterval(pollRef.current);
-      pollRef.current = setInterval(async () => {
-        await load({ page: 0 }, true); // silent — no spinner, no scroll reset
-        if (++ticks >= 5) { clearInterval(pollRef.current); pollRef.current = null; }
-      }, 8000);
+      toast((result.message || 'Discovery started') + ' — click Search to see new jobs', 'info');
     } catch (e) { toast(e.message, 'error'); }
     setDiscover(false);
   };
 
+  // Poll silently every 5s up to 60s until the specific job gets a score
   const handleRunMatch = async (job) => {
     setMatching(job.id);
     try {
       await api.runMatching({ profile_id: profileId });
       toast('Scoring job against your profile…', 'info');
-      // Poll silently every 5s up to 60s until this specific job gets a score
       let attempts = 0;
-      const matchPollRef = { current: null };
-      matchPollRef.current = setInterval(async () => {
+      const iv = setInterval(async () => {
         attempts++;
         const res = await api.getJobs({ ...qRef.current, limit: PAGE_SIZE, offset: qRef.current.page * PAGE_SIZE }).catch(() => null);
         if (res?.jobs) {
@@ -183,14 +214,14 @@ export default function Jobs() {
           setTotal(res.total ?? 0);
           const scored = res.jobs.find(j => j.id === job.id && j.score != null);
           if (scored) {
-            clearInterval(matchPollRef.current);
+            clearInterval(iv);
             setMatching(null);
             toast(`Match score: ${Math.round(scored.score)}/100`, 'success');
             return;
           }
         }
-        if (attempts >= 12) { // 60s timeout
-          clearInterval(matchPollRef.current);
+        if (attempts >= 12) {
+          clearInterval(iv);
           setMatching(null);
           toast('Scoring took too long — refresh to check', 'info');
         }
@@ -232,6 +263,11 @@ export default function Jobs() {
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
               placeholder="Keywords (e.g. Python, backend)"
             />
+            {keywords && (
+              <button onClick={() => setKeywords('')} className="text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400 cursor-pointer">
+                <X className="w-3 h-3" />
+              </button>
+            )}
           </div>
 
           {/* Location */}
@@ -244,7 +280,7 @@ export default function Jobs() {
               value={location}
               onChange={e => setLocation(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
-              placeholder="Location (e.g. Lahore)"
+              placeholder="Location"
             />
           </div>
 
@@ -263,21 +299,14 @@ export default function Jobs() {
           </div>
 
           {/* Search */}
-          <button
-            onClick={handleSearch}
-            className="flex-none flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-bold
-              hover:bg-indigo-500 transition-colors cursor-pointer"
-          >
+          <button onClick={handleSearch}
+            className="flex-none flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-500 transition-colors cursor-pointer">
             <Search className="w-3.5 h-3.5" />Search
           </button>
 
           {/* Find Jobs (discovery) */}
-          <button
-            onClick={handleDiscover}
-            disabled={discovering}
-            className="flex-none flex items-center gap-2 px-5 py-2 bg-cyan-400 text-slate-900 text-sm font-bold
-              hover:bg-cyan-300 disabled:opacity-60 transition-colors cursor-pointer"
-          >
+          <button onClick={handleDiscover} disabled={discovering}
+            className="flex-none flex items-center gap-2 px-5 py-2 bg-cyan-400 text-slate-900 text-sm font-bold hover:bg-cyan-300 disabled:opacity-60 transition-colors cursor-pointer">
             {discovering
               ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Scanning…</>
               : <><Globe className="w-3.5 h-3.5" />Find Jobs</>}
@@ -342,43 +371,32 @@ export default function Jobs() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-white/[0.06]">
-              <span className="text-xs t-m">
-                Page {page + 1} of {totalPages} · {total} jobs
-              </span>
+              <span className="text-xs t-m">Page {page + 1} of {totalPages} · {total} jobs</span>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page === 0}
+                <button onClick={() => handlePageChange(page - 1)} disabled={page === 0}
                   className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium border border-slate-200 dark:border-white/10
                     text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/[0.06]
-                    disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                >
+                    disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
                   <ChevronLeft className="w-3 h-3" />Prev
                 </button>
-                {/* Page number pills */}
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   const start = Math.max(0, Math.min(page - 2, totalPages - 5));
                   const p = start + i;
                   return (
-                    <button
-                      key={p}
-                      onClick={() => handlePageChange(p)}
-                      className={clsx(
-                        'w-7 h-7 text-xs font-medium border transition-colors cursor-pointer',
+                    <button key={p} onClick={() => handlePageChange(p)}
+                      className={clsx('w-7 h-7 text-xs font-medium border transition-colors cursor-pointer',
                         p === page
                           ? 'bg-indigo-600 text-white border-indigo-600'
                           : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/[0.06]',
-                      )}
-                    >{p + 1}</button>
+                      )}>
+                      {p + 1}
+                    </button>
                   );
                 })}
-                <button
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= totalPages - 1}
+                <button onClick={() => handlePageChange(page + 1)} disabled={page >= totalPages - 1}
                   className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium border border-slate-200 dark:border-white/10
                     text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/[0.06]
-                    disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                >
+                    disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">
                   Next<ChevronRight className="w-3 h-3" />
                 </button>
               </div>
@@ -400,31 +418,20 @@ function JobCard({ job, selected, onClick, onMatch, matching }) {
   const when = relativeTime(job.posted_at ?? job.discovered_at);
 
   return (
-    <div
-      onClick={onClick}
+    <div onClick={onClick}
       className={clsx(
-        'border p-4 cursor-pointer transition-all duration-150 hover:border-slate-300 dark:hover:border-white/20',
+        'border p-3.5 cursor-pointer transition-all duration-150 hover:border-slate-300 dark:hover:border-white/20',
         selected
           ? 'bg-cyan-50/60 border-cyan-300 dark:bg-cyan-500/5 dark:border-cyan-500/30'
           : 'bg-white border-slate-200 dark:bg-white/[0.03] dark:border-white/10',
-      )}
-    >
-      <div className="flex gap-3">
-        {/* Score badge */}
-        {hasScore ? (
-          <div className={clsx('w-12 h-12 shrink-0 flex flex-col items-center justify-center ring-2', sm.ring, sm.bg)}>
-            <span className={clsx('text-base font-black leading-none tabular-nums', sm.num)}>{Math.round(job.score)}</span>
-            <span className="text-[9px] font-bold opacity-40 mt-0.5">/100</span>
-          </div>
-        ) : (
-          <div className="w-12 h-12 shrink-0 flex items-center justify-center border border-dashed border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02]">
-            <Bot className="w-4 h-4 text-slate-300 dark:text-slate-600" />
-          </div>
-        )}
+      )}>
+      <div className="flex gap-3 items-start">
+        {/* Company logo */}
+        <CompanyLogo company={job.company} applyUrl={job.apply_url} size={40} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="text-[14px] font-semibold t-h leading-snug truncate">{job.title ?? '—'}</h3>
+            <h3 className="text-[13px] font-semibold t-h leading-snug line-clamp-2">{job.title ?? '—'}</h3>
             {when && <span className="text-[11px] t-m shrink-0 mt-0.5">{when}</span>}
           </div>
 
@@ -434,8 +441,7 @@ function JobCard({ job, selected, onClick, onMatch, matching }) {
 
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
             <span className={clsx('inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 border', atm.color, atm.bg, atm.border)}>
-              <TypeIcon className="w-2.5 h-2.5" />
-              {atm.label}
+              <TypeIcon className="w-2.5 h-2.5" />{atm.label}
             </span>
 
             {job.source && (
@@ -444,12 +450,14 @@ function JobCard({ job, selected, onClick, onMatch, matching }) {
               </span>
             )}
 
-            {!hasScore && (
-              <button
-                onClick={e => { e.stopPropagation(); onMatch(); }}
-                disabled={matching}
-                className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 px-2 py-0.5 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-500/20 transition-colors disabled:opacity-50"
-              >
+            {/* Score badge or Run Match button */}
+            {hasScore ? (
+              <span className={clsx('ml-auto inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 ring-1', sm.ring, sm.bg, sm.num)}>
+                {Math.round(job.score)}<span className="opacity-50 font-normal">/100</span>
+              </span>
+            ) : (
+              <button onClick={e => { e.stopPropagation(); onMatch(); }} disabled={matching}
+                className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 px-2 py-0.5 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-500/20 transition-colors disabled:opacity-50">
                 {matching ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Bot className="w-2.5 h-2.5" />}
                 {matching ? 'Scoring…' : 'Run Match'}
               </button>
@@ -475,21 +483,22 @@ function JobDetail({ job, onClose, onMatch, matching }) {
 
   return (
     <div className="card overflow-hidden flex flex-col">
-      {/* Top header */}
+      {/* Header */}
       <div className="p-5 border-b border-slate-100 dark:border-white/[0.06]">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <CompanyLogo company={job.company} applyUrl={job.apply_url} size={48} />
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-black t-h leading-snug">{job.title ?? '—'}</h2>
-            <p className="text-sm t-b mt-1">{[job.company, job.location].filter(Boolean).join(' · ')}</p>
+            <div className="flex items-start justify-between gap-2">
+              <h2 className="text-base font-black t-h leading-snug">{job.title ?? '—'}</h2>
+              <button onClick={onClose} className="btn-icon shrink-0"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-sm t-b mt-0.5">{[job.company, job.location].filter(Boolean).join(' · ')}</p>
           </div>
-          <button onClick={onClose} className="btn-icon shrink-0"><X className="w-4 h-4" /></button>
         </div>
 
-        {/* Meta badges */}
         <div className="flex flex-wrap gap-2 mt-3">
           <span className={clsx('inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 border', atm.color, atm.bg, atm.border)}>
-            <TypeIcon className="w-3 h-3" />
-            {atm.label}
+            <TypeIcon className="w-3 h-3" />{atm.label}
           </span>
           {job.source && (
             <span className="text-[11px] font-semibold t-m bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 px-2.5 py-1">
@@ -498,14 +507,13 @@ function JobDetail({ job, onClose, onMatch, matching }) {
           )}
           {when && (
             <span className="inline-flex items-center gap-1.5 text-[11px] t-m">
-              <Calendar className="w-3 h-3" />
-              {when}
+              <Calendar className="w-3 h-3" />{when}
             </span>
           )}
         </div>
       </div>
 
-      {/* Score section */}
+      {/* Score */}
       <div className="p-5 border-b border-slate-100 dark:border-white/[0.06]">
         {hasScore ? (
           <div className={clsx('p-4 ring-2', sm.ring, sm.bg)}>
@@ -514,21 +522,15 @@ function JobDetail({ job, onClose, onMatch, matching }) {
                 <span className={clsx('text-4xl font-black leading-none tabular-nums', sm.num)}>{Math.round(job.score)}</span>
                 <span className={clsx('text-[10px] font-bold opacity-50 block mt-0.5', sm.num)}>/100 match</span>
               </div>
-              {job.reasoning && (
-                <p className="text-[13px] t-b leading-relaxed">{job.reasoning}</p>
-              )}
+              {job.reasoning && <p className="text-[13px] t-b leading-relaxed">{job.reasoning}</p>}
             </div>
             {(job.strengths?.length > 0 || job.gaps?.length > 0) && (
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {(job.strengths ?? []).map((s, i) => (
-                  <span key={i} className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5">
-                    ✓ {s}
-                  </span>
+                  <span key={i} className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5">✓ {s}</span>
                 ))}
                 {(job.gaps ?? []).map((g, i) => (
-                  <span key={i} className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-0.5">
-                    △ {g}
-                  </span>
+                  <span key={i} className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-0.5">△ {g}</span>
                 ))}
               </div>
             )}
@@ -536,11 +538,8 @@ function JobDetail({ job, onClose, onMatch, matching }) {
         ) : (
           <div className="flex items-center justify-between gap-3 p-4 border border-dashed border-slate-200 dark:border-white/10">
             <span className="text-sm t-b">No match score yet</span>
-            <button
-              onClick={onMatch}
-              disabled={matching}
-              className="inline-flex items-center gap-2 text-sm font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 px-3 py-1.5 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-500/20 transition-colors disabled:opacity-50"
-            >
+            <button onClick={onMatch} disabled={matching}
+              className="inline-flex items-center gap-2 text-sm font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 px-3 py-1.5 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-500/20 transition-colors disabled:opacity-50">
               {matching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />}
               {matching ? 'Scoring…' : 'Run Match'}
             </button>
@@ -548,13 +547,10 @@ function JobDetail({ job, onClose, onMatch, matching }) {
         )}
       </div>
 
-      {/* Apply button */}
+      {/* Apply */}
       {job.apply_url && (
         <div className="p-5 border-b border-slate-100 dark:border-white/[0.06]">
-          <a
-            href={job.apply_url}
-            target="_blank"
-            rel="noreferrer"
+          <a href={job.apply_url} target="_blank" rel="noreferrer"
             className={clsx(
               'flex items-center justify-center gap-2 py-2.5 text-sm font-bold transition-colors',
               job.apply_type === 'auto'
@@ -562,8 +558,7 @@ function JobDetail({ job, onClose, onMatch, matching }) {
                 : job.apply_type === 'online_manual'
                 ? 'bg-purple-600 text-white hover:bg-purple-500'
                 : 'border border-slate-300 dark:border-white/20 t-h hover:bg-slate-50 dark:hover:bg-white/[0.04]',
-            )}
-          >
+            )}>
             <ExternalLink className="w-3.5 h-3.5" />
             {job.apply_type === 'auto' ? 'Auto-Apply Now' : 'Apply Now'}
           </a>
@@ -578,10 +573,8 @@ function JobDetail({ job, onClose, onMatch, matching }) {
             {desc}
           </p>
           {longDesc && (
-            <button
-              onClick={() => setDescExpanded(v => !v)}
-              className="text-xs font-semibold text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 mt-2 cursor-pointer"
-            >
+            <button onClick={() => setDescExpanded(v => !v)}
+              className="text-xs font-semibold text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 mt-2 cursor-pointer">
               {descExpanded ? 'Show less ↑' : 'Show more ↓'}
             </button>
           )}
@@ -595,8 +588,8 @@ function JobDetail({ job, onClose, onMatch, matching }) {
 
 function EmptyState({ tab }) {
   const msgs = {
-    all:    'No jobs found. Enter keywords and a location above, then click Search.',
-    auto:   'No auto-applicable jobs found yet. Run Find Jobs with your keywords.',
+    all:    'No jobs found. Enter keywords and location above, then click Search.',
+    auto:   'No auto-applicable jobs found. Click Find Jobs to scan for new ones.',
     online: 'No online-apply jobs in this period. Try widening the date range.',
     manual: 'No manual-apply-only jobs found.',
   };
