@@ -49,11 +49,13 @@ export default function Integrations() {
     try {
       const s = await api.getIntegrationsStatus(userId);
       setStatus(s);
-      if (s.whatsapp.has_qr && !s.whatsapp.connected) {
-        startQrPoll();
-      } else if (s.whatsapp.connected) {
+      if (s.whatsapp.connected) {
         stopQrPoll();
         setQr(null);
+      } else if (s.whatsapp.error !== 'sidecar_unreachable') {
+        // Not connected and sidecar is reachable — start polling /qr which
+        // also lazily creates the session on the sidecar.
+        startQrPoll();
       }
     } catch { /* ignore */ }
   };
@@ -84,9 +86,14 @@ export default function Integrations() {
   };
 
   useEffect(() => {
-    if (status?.whatsapp?.has_qr && !status?.whatsapp?.connected) startQrPoll();
+    if (status?.whatsapp?.connected) {
+      stopQrPoll();
+    } else if (status && status.whatsapp?.error !== 'sidecar_unreachable') {
+      startQrPoll();
+    }
     return stopQrPoll;
-  }, [status?.whatsapp?.has_qr, status?.whatsapp?.connected]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status?.whatsapp?.connected, status?.whatsapp?.error]);
 
   const connectGmail = async () => {
     if (!user) return;
