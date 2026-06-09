@@ -79,10 +79,11 @@ export default function Jobs() {
   // Stable ref holds the latest query params so load() never has stale closures
   const qRef = useRef({ tab: 'all', location: '', keywords: '', days: 7, page: 0 });
 
-  const load = useCallback(async (overrides = {}) => {
+  // silent=true → update jobs list in background without showing the full-page spinner
+  const load = useCallback(async (overrides = {}, silent = false) => {
     const q = { ...qRef.current, ...overrides };
     qRef.current = q;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const res = await api.getJobs({
         tab:      q.tab,
@@ -94,11 +95,11 @@ export default function Jobs() {
       });
       setJobs(res.jobs ?? []);
       setTotal(res.total ?? 0);
-      setSelected(null);
+      if (!silent) setSelected(null);
     } catch (e) {
-      toast(e.message, 'error');
+      if (!silent) toast(e.message, 'error');
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [toast]);
 
   // Mount: fetch profile to pre-fill filters, then load once
@@ -155,13 +156,13 @@ export default function Jobs() {
       const result = await api.runDiscovery({ keywords: kw, location: location.trim(), profile_id: profileId, days });
       setSources(result.sources || []);
       toast(result.message || 'Discovery started — new jobs will appear shortly', 'info');
+      // Poll silently every 8s (no spinner) — 5 ticks = 40s
       let ticks = 0;
       clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
-        await load({ page: 0 });
-        setPage(0);
-        if (++ticks >= 12) { clearInterval(pollRef.current); pollRef.current = null; }
-      }, 4000);
+        await load({ page: 0 }, true); // silent — no spinner, no scroll reset
+        if (++ticks >= 5) { clearInterval(pollRef.current); pollRef.current = null; }
+      }, 8000);
     } catch (e) { toast(e.message, 'error'); }
     setDiscover(false);
   };
@@ -170,10 +171,34 @@ export default function Jobs() {
     setMatching(job.id);
     try {
       await api.runMatching({ profile_id: profileId });
-      toast('Matching started — score will appear in a few seconds', 'info');
-      setTimeout(() => load({}), 3500);
-    } catch (e) { toast(e.message, 'error'); }
-    setMatching(null);
+      toast('Scoring job against your profile…', 'info');
+      // Poll silently every 5s up to 60s until this specific job gets a score
+      let attempts = 0;
+      const matchPollRef = { current: null };
+      matchPollRef.current = setInterval(async () => {
+        attempts++;
+        const res = await api.getJobs({ ...qRef.current, limit: PAGE_SIZE, offset: qRef.current.page * PAGE_SIZE }).catch(() => null);
+        if (res?.jobs) {
+          setJobs(res.jobs);
+          setTotal(res.total ?? 0);
+          const scored = res.jobs.find(j => j.id === job.id && j.score != null);
+          if (scored) {
+            clearInterval(matchPollRef.current);
+            setMatching(null);
+            toast(`Match score: ${Math.round(scored.score)}/100`, 'success');
+            return;
+          }
+        }
+        if (attempts >= 12) { // 60s timeout
+          clearInterval(matchPollRef.current);
+          setMatching(null);
+          toast('Scoring took too long — refresh to check', 'info');
+        }
+      }, 5000);
+    } catch (e) {
+      toast(e.message, 'error');
+      setMatching(null);
+    }
   };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
