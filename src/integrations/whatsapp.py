@@ -267,6 +267,7 @@ async def process_incoming(
             db_get=db_get,
             insert_row=insert_row,
             select_rows=select_rows,
+            session_id=session_id,
         )
 
     # Strip self-trigger prefixes so the extractor sees clean text
@@ -540,6 +541,7 @@ async def _handle_form_url(
     db_get,
     insert_row,
     select_rows,
+    session_id: str | None = None,
 ) -> str:
     """
     Fetch a Google Form, propose fills from the user's profile using one AI call,
@@ -547,7 +549,11 @@ async def _handle_form_url(
     """
     from src.agents.form_filler import FormFillerAgent
 
-    profiles = await select_rows("profiles")
+    if session_id:
+        profiles = await select_rows("profiles", filters={"user_id": session_id})
+    else:
+        profiles = await select_rows("profiles")
+
     if not profiles:
         return (
             "No profile found. Set up your profile at the dashboard first, "
