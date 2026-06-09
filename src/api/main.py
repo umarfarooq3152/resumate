@@ -90,6 +90,7 @@ class RunRequest(BaseModel):
     keywords: list[str] | str = "software engineer"
     location: str = ""
     pages: int = Field(default=1, ge=1, le=100)
+    days: int = Field(default=7, ge=1, le=90)
     profile_id: str | None = None
 
 
@@ -300,8 +301,61 @@ async def upload_resume(
 # ---------------------------------------------------------------------------
 
 @app.get("/jobs")
-async def list_jobs(limit: int = 100) -> list[dict[str, Any]]:
-    return await select_rows("jobs", limit=limit)
+async def list_jobs(
+    tab: str = "all",          # all | auto | online | manual
+    days: int = 7,             # only show jobs posted/discovered within N days
+    location: str = "",        # optional location filter (substring match)
+    keywords: str = "",        # optional keyword filter (title/company)
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """List jobs with tab, date, location and keyword filters."""
+    from datetime import timedelta
+    db = await get_db()
+
+    # Include match score if available
+    query = db.table("jobs").select(
+        "id,source,title,company,location,apply_url,apply_method,apply_type,"
+        "posted_at,discovered_at,description,"
+        "matches(score,decision,strengths,gaps,reasoning)"
+    )
+
+    # Tab → apply_type filter
+    type_map = {"auto": "auto", "online": "online_manual", "manual": "manual_only"}
+    if tab in type_map:
+        query = query.eq("apply_type", type_map[tab])
+
+    # Date filter — posted_at first, fall back to discovered_at
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    query = query.or_(
+        f"posted_at.gte.{cutoff},and(posted_at.is.null,discovered_at.gte.{cutoff})"
+    )
+
+    # Location filter
+    if location:
+        query = query.ilike("location", f"%{location}%")
+
+    # Keyword filter
+    if keywords:
+        kw = keywords.strip()
+        query = query.or_(f"title.ilike.%{kw}%,company.ilike.%{kw}%")
+
+    query = query.order("discovered_at", desc=True).limit(limit)
+
+    resp = await query.execute()
+    jobs = resp.data or []
+
+    # Flatten nested match into top-level score fields
+    for j in jobs:
+        match_list = j.pop("matches", None) or []
+        m = match_list[0] if match_list else {}
+        j["score"]     = m.get("score")
+        j["decision"]  = m.get("decision")
+        j["strengths"] = m.get("strengths") or []
+        j["gaps"]      = m.get("gaps") or []
+        j["reasoning"] = m.get("reasoning")
+        j["matched"]   = bool(m)
+
+    return jobs
 
 
 @app.get("/jobs/{job_id}")
@@ -522,7 +576,7 @@ async def run_discovery(body: RunRequest, background_tasks: BackgroundTasks) -> 
     raw_kw = body.keywords if isinstance(body.keywords, str) else ", ".join(body.keywords)
     keywords = raw_kw.strip() or "software engineer"
     location = body.location or ""
-    background_tasks.add_task(DiscoveryAgent().run, keywords=keywords, location=location, pages=body.pages)
+    background_tasks.add_task(DiscoveryAgent().run, keywords=keywords, location=location, pages=body.pages, days=body.days)
 
     pakistan = _is_pakistan(location)
     adzuna = _adzuna_country(location) if not pakistan else None

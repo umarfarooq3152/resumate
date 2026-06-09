@@ -70,7 +70,12 @@ export const api = {
   },
 
   // Jobs & scored matches
-  getJobs:    (limit = 100) => req(`/jobs?limit=${limit}`),
+  getJobs: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries({ limit: 200, ...params }).filter(([, v]) => v != null && v !== '')
+    ).toString();
+    return req(`/jobs?${qs}`);
+  },
   getMatches: (status) => req(`/matches${status && status !== 'all' ? `?status=${status}` : ''}`),
   getPipeline: () => req('/pipeline'),
   getDashboard: () => req('/dashboard'),
