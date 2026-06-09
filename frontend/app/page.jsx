@@ -138,7 +138,7 @@ export default function Landing() {
       <section className="relative h-screen min-h-[600px] overflow-hidden">
         {/* Spline 3D background */}
         <div className="absolute inset-0 z-0">
-          <Spline scene="https://prod.spline.design/MWoEf6V1fJrKDXJ4/scene.splinecode" />
+          <Spline scene="https://prod.spline.design/0sWxrv4yIUaXMQb6/scene.splinecode" />
         </div>
 
         {/* scroll indicator */}
