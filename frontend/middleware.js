@@ -4,6 +4,18 @@ import { NextResponse } from 'next/server';
 const PROTECTED = ['/dashboard', '/profile', '/jobs', '/applications', '/pipeline', '/settings', '/forms', '/onboarding', '/email-drafts', '/integrations'];
 
 export async function middleware(request) {
+  const { pathname, searchParams } = request.nextUrl;
+
+  // If Supabase sends ?code= to the wrong page, forward to the callback route
+  const code = searchParams.get('code');
+  if (code && pathname !== '/auth/callback') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/auth/callback';
+    url.searchParams.set('code', code);
+    url.searchParams.set('next', '/dashboard');
+    return NextResponse.redirect(url);
+  }
+
   let response = NextResponse.next({ request });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
