@@ -346,7 +346,12 @@ async def list_jobs(
 
     # Flatten nested match into top-level score fields
     for j in jobs:
-        match_list = j.pop("matches", None) or []
+        raw = j.pop("matches", None)
+        # Supabase may return a dict (one-to-one) or list (one-to-many)
+        if isinstance(raw, dict):
+            match_list = [raw] if raw else []
+        else:
+            match_list = raw or []
         m = match_list[0] if match_list else {}
         j["score"]     = m.get("score")
         j["decision"]  = m.get("decision")
