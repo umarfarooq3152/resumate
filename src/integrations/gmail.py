@@ -30,6 +30,9 @@ from src.config import settings
 log = logging.getLogger(__name__)
 
 _GMAIL_SCOPES = [
+    "openid",
+    "email",
+    "profile",
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/gmail.modify",    # mark as read

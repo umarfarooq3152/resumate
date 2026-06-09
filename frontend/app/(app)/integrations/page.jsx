@@ -25,14 +25,6 @@ export default function Integrations() {
   const qrPollRef = useRef(null);
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await getSupabase().auth.getUser();
-      setUser(user);
-      if (user) await refreshStatus(user.id);
-      setLoading(false);
-    };
-    init();
-
     const p = new URLSearchParams(window.location.search);
     if (p.get('gmail_connected')) {
       toast(`Gmail connected${p.get('email') ? ': ' + p.get('email') : ''}!`, 'success');
@@ -42,7 +34,34 @@ export default function Integrations() {
       toast(`Gmail error: ${p.get('error')}`, 'error');
       window.history.replaceState({}, '', '/integrations');
     }
-    return () => stopQrPoll();
+
+    // Initial load
+    getSupabase().auth.getUser().then(async ({ data: { user: u } }) => {
+      setUser(u);
+      if (u) await refreshStatus(u.id);
+      setLoading(false);
+    });
+
+    // Re-load when the signed-in account changes (handles switching accounts
+    // without a full page reload, or stale singleton auth state)
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange(async (event, session) => {
+      const u = session?.user ?? null;
+      if (u?.id !== undefined) {
+        setUser(u);
+        setStatus(null);
+        setQr(null);
+        stopQrPoll();
+        setLoading(true);
+        await refreshStatus(u.id);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      stopQrPoll();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refreshStatus = async (userId) => {
