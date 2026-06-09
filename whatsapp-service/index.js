@@ -294,7 +294,10 @@ function createSession(sessionId) {
     try {
       const pingMsg = await client.sendMessage(selfId, '✅ Job agent online — send me an HR email to draft your application!');
       rememberBotMsg(state, pingMsg);
-    } catch (e) {}
+      console.log(`[${sessionId}] startup ping sent to ${selfId}`);
+    } catch (e) {
+      console.error(`[${sessionId}] startup ping failed:`, e.message);
+    }
   });
 
   client.on('disconnected', (reason) => {
@@ -323,8 +326,10 @@ function createSession(sessionId) {
     const toId   = (msg.to   || '').toString();
     const fromId = (msg.from || '').toString();
 
+    // Discover @lid self-chat ID
     if (!state.selfLidId && toId.endsWith('@lid') && toId === fromId) {
       state.selfLidId = toId;
+      console.log(`[${sessionId}] @lid self-chat discovered: ${state.selfLidId}`);
     }
 
     const isSelfChat =
@@ -332,10 +337,16 @@ function createSession(sessionId) {
       (state.selfLidId && toId === state.selfLidId) ||
       (toId.endsWith('@lid') && toId === fromId);
 
+    console.log(`[${sessionId}] message_create: to=${toId} selfId=${selfId} selfLid=${state.selfLidId} isSelf=${isSelfChat} body="${(msg.body||'').slice(0,60)}"`);
+
     if (!isSelfChat) return;
 
     const msgId = msg.id?._serialized;
-    if (msgId && state.sentByBot.has(msgId)) { state.sentByBot.delete(msgId); return; }
+    if (msgId && state.sentByBot.has(msgId)) {
+      console.log(`[${sessionId}] skipping bot message ${msgId}`);
+      state.sentByBot.delete(msgId);
+      return;
+    }
 
     if (msg.type === 'ptt' || msg.type === 'audio') {
       await dispatchVoiceToFastAPI(state, selfId, msg);
@@ -346,6 +357,7 @@ function createSession(sessionId) {
     if (!body) return;
     if (BOT_PREFIXES.some(p => body.startsWith(p))) return;
 
+    console.log(`[${sessionId}] dispatching to FastAPI: hr_email=${extractHrEmail(body)} body="${body.slice(0,80)}"`);
     await dispatchToFastAPI(state, selfId, body, extractHrEmail(body), true);
   });
 
