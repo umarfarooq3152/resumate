@@ -1,4 +1,3 @@
-'use client';
 import Link from 'next/link';
 import Spline from '@splinetool/react-spline/next';
 import {
@@ -138,7 +137,7 @@ export default function Landing() {
       {/* ─── Hero ─────────────────────────────────────────────────── */}
       <section className="relative h-screen min-h-[600px] overflow-hidden">
         {/* Spline 3D background */}
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 pointer-events-none">
           <Spline scene="https://prod.spline.design/MWoEf6V1fJrKDXJ4/scene.splinecode" />
         </div>
 
