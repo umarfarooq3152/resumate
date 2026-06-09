@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import SplineHero from '@/components/SplineHero';
+import SplineHero from '../components/SplineHero';
 import {
   Bot, Search, Target, FileEdit, ShieldCheck,
   ClipboardList, BarChart3, ArrowRight, CheckCircle2,
