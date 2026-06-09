@@ -667,18 +667,37 @@ async def parse_resume_file(file_bytes: bytes, mime_type: str, filename: str = "
     client = _get_client()
     ext = ("." + filename.rsplit(".", 1)[-1].lower()) if "." in filename else ""
 
-    # ── PDF: Gemini multimodal ──────────────────────────────────
+    # ── PDF: Gemini multimodal, pypdf fallback ─────────────────
     if mime_type == "application/pdf" or ext == ".pdf":
-        part = types.Part.from_bytes(data=file_bytes, mime_type="application/pdf")
-        response = await client.aio.models.generate_content(
-            model=settings.gemini_model,
-            contents=[
-                part,
-                "Extract all text from this resume/CV. Return only the plain text, "
-                "preserving sections and headings. Do not add commentary.",
-            ],
-        )
-        return response.text.strip()
+        try:
+            part = types.Part.from_bytes(data=file_bytes, mime_type="application/pdf")
+            response = await client.aio.models.generate_content(
+                model=settings.gemini_model,
+                contents=[
+                    part,
+                    "Extract all text from this resume/CV. Return only the plain text, "
+                    "preserving sections and headings. Do not add commentary.",
+                ],
+            )
+            text = (response.text or "").strip()
+            if text:
+                return text
+        except Exception as exc:
+            log.warning("Gemini PDF parse failed, trying pypdf: %s", exc)
+
+        # pypdf fallback — clean text, no null bytes
+        try:
+            import pypdf
+            from io import BytesIO
+            reader = pypdf.PdfReader(BytesIO(file_bytes))
+            pages = [page.extract_text() or "" for page in reader.pages]
+            text = "\n".join(pages).strip()
+            if text:
+                return text
+        except Exception as exc:
+            log.warning("pypdf fallback failed: %s", exc)
+
+        return ""  # let upload_resume handle the empty-text case
 
     # ── DOCX: python-docx paragraph extraction ──────────────────
     if ext in (".docx",) or mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":

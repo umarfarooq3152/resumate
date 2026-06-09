@@ -28,6 +28,9 @@ dependencies = [
     # Web scraping
     "beautifulsoup4>=4.12.0",
     "lxml>=4.9.0",
+    # Resume parsing fallbacks (used when Gemini is rate-limited)
+    "pypdf>=4.0.0",
+    "python-docx>=1.1.0",
 ]
 
 [project.optional-dependencies]

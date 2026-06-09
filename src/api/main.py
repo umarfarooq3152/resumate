@@ -258,8 +258,11 @@ async def upload_resume(
         log.warning("Gemini parse failed, falling back to raw text: %s", exc)
         resume_text = content.decode("utf-8", errors="ignore")
 
+    # PostgreSQL rejects \x00 (null bytes present in raw PDF binary fallback)
+    resume_text = resume_text.replace('\x00', '')
+
     if not resume_text.strip():
-        raise HTTPException(422, "Could not extract text from file")
+        raise HTTPException(422, "Could not extract text from file. Try a plain-text or Word (.docx) version of your resume.")
 
     # Store in Supabase Storage (best-effort)
     storage_path: str | None = None
