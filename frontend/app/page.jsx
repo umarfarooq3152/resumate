@@ -1,4 +1,6 @@
+'use client';
 import Link from 'next/link';
+import Spline from '@splinetool/react-spline/next';
 import {
   Bot, Search, Target, FileEdit, Send, ShieldCheck,
   ClipboardList, BarChart3, ArrowRight, CheckCircle2,
@@ -134,117 +136,51 @@ export default function Landing() {
       </nav>
 
       {/* ─── Hero ─────────────────────────────────────────────────── */}
-      <section className="relative pt-32 pb-24 px-6">
-        {/* subtle grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,.04)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,.04)_1px,transparent_1px)] bg-[size:72px_72px]" />
-        {/* glow */}
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-indigo-600/8 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute top-48 right-1/4 w-64 h-64 bg-violet-600/8 rounded-full blur-[80px] pointer-events-none" />
+      <section className="relative h-screen min-h-[600px] overflow-hidden">
+        {/* Spline 3D background */}
+        <div className="absolute inset-0 z-0">
+          <Spline scene="https://prod.spline.design/MWoEf6V1fJrKDXJ4/scene.splinecode" />
+        </div>
 
-        <div className="relative max-w-4xl mx-auto text-center">
+        {/* gradient overlay so text stays readable */}
+        <div className="absolute inset-0 z-10 bg-gradient-to-b from-[#0a0a0f]/40 via-transparent to-[#0a0a0f]/80 pointer-events-none" />
 
-          {/* badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-xs font-semibold text-indigo-400 mb-8 tracking-wide">
+        {/* Hero content */}
+        <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-xs font-semibold text-indigo-400 mb-8 tracking-wide backdrop-blur-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
             Powered by Gemini 2.5 Flash + Adzuna
           </div>
 
-          <h1 className="text-[3.25rem] md:text-7xl font-black text-white leading-[1.04] tracking-tighter mb-6">
+          <h1 className="text-[3.25rem] md:text-7xl font-black text-white leading-[1.04] tracking-tighter mb-6 drop-shadow-2xl">
             Land your dream job
             <br />
             <span className="text-indigo-400">on autopilot.</span>
           </h1>
 
-          <p className="text-[1.05rem] md:text-xl text-slate-400 leading-relaxed mb-10 max-w-xl mx-auto">
+          <p className="text-[1.05rem] md:text-xl text-slate-300 leading-relaxed mb-10 max-w-xl mx-auto drop-shadow-lg">
             An AI agent that discovers jobs, scores them against your resume,
             tailors documents, and submits — while you approve every decision.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-20">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link href="/register"
               className="flex items-center gap-2 px-7 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-900/50 text-sm w-full sm:w-auto justify-center group">
               Start for free
               <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <Link href="/login"
-              className="flex items-center gap-2 px-7 py-3.5 text-slate-300 font-semibold rounded-xl border border-white/10 hover:border-white/20 hover:text-white hover:bg-white/[0.04] transition-all text-sm w-full sm:w-auto justify-center">
+              className="flex items-center gap-2 px-7 py-3.5 text-slate-300 font-semibold rounded-xl border border-white/20 hover:border-white/40 hover:text-white hover:bg-white/[0.08] backdrop-blur-sm transition-all text-sm w-full sm:w-auto justify-center">
               <Play className="w-3.5 h-3.5" />
               View dashboard
             </Link>
           </div>
+        </div>
 
-          {/* ── Dashboard preview ──────────────────────────── */}
-          <div className="relative mx-auto max-w-3xl">
-            {/* browser chrome */}
-            <div className="bg-white/[0.04] backdrop-blur-sm border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden ring-1 ring-white/[0.06]">
-              <div className="flex items-center gap-1.5 px-4 py-3 border-b border-white/8 bg-black/20">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400/60" />
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400/60" />
-                <div className="ml-3 flex items-center gap-2 h-5 bg-white/[0.06] rounded-md flex-1 max-w-xs px-3">
-                  <Lock className="w-2.5 h-2.5 text-slate-500 shrink-0" />
-                  <span className="text-[10px] text-slate-500">jobagent.app/dashboard</span>
-                </div>
-              </div>
-
-              <div className="flex h-60 md:h-76">
-                {/* sidebar mock */}
-                <div className="w-36 shrink-0 border-r border-white/6 bg-black/30 p-3 space-y-0.5">
-                  {['Dashboard', 'Profile', 'Jobs', 'Applications', 'Pipeline', 'Settings'].map((item, i) => (
-                    <div key={item} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${i === 0 ? 'bg-indigo-600/20' : ''}`}>
-                      <div className={`w-2.5 h-2.5 rounded ${i === 0 ? 'bg-indigo-400/70' : 'bg-slate-600/50'} shrink-0`} />
-                      <div className={`h-1.5 rounded flex-1 ${i === 0 ? 'bg-indigo-400/50' : 'bg-slate-600/30'}`} />
-                    </div>
-                  ))}
-                </div>
-
-                {/* main content */}
-                <div className="flex-1 p-4 bg-black/10 space-y-3">
-                  {/* stat row */}
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { label: 'Discovered', val: '142', bg: 'rgba(99,102,241,.1)',  border: 'rgba(99,102,241,.15)', labelC: 'rgba(129,140,248,.7)', valC: '#a5b4fc' },
-                      { label: 'Matched',    val: '38',  bg: 'rgba(139,92,246,.1)',  border: 'rgba(139,92,246,.15)', labelC: 'rgba(167,139,250,.7)', valC: '#c4b5fd' },
-                      { label: 'Applied',    val: '12',  bg: 'rgba(16,185,129,.1)',  border: 'rgba(16,185,129,.15)', labelC: 'rgba(52,211,153,.7)',  valC: '#6ee7b7' },
-                      { label: 'Pending',    val: '3',   bg: 'rgba(245,158,11,.1)',  border: 'rgba(245,158,11,.15)', labelC: 'rgba(251,191,36,.7)',  valC: '#fcd34d' },
-                    ].map(({ label, val, bg, border, labelC, valC }) => (
-                      <div key={label} className="rounded-xl p-2.5" style={{ background: bg, border: `1px solid ${border}` }}>
-                        <div className="text-[9px] font-semibold mb-1 uppercase tracking-wide" style={{ color: labelC }}>{label}</div>
-                        <div className="text-base font-black" style={{ color: valC }}>{val}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* job rows */}
-                  {[
-                    { tw: 'w-36', cw: 'w-20', score: 91, color: '#34d399', bg: 'rgba(16,185,129,.12)' },
-                    { tw: 'w-28', cw: 'w-16', score: 78, color: '#818cf8', bg: 'rgba(99,102,241,.12)' },
-                    { tw: 'w-32', cw: 'w-24', score: 64, color: '#fbbf24', bg: 'rgba(245,158,11,.12)' },
-                  ].map((r, i) => (
-                    <div key={i} className="flex items-center gap-2.5 bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2.5">
-                      <div className="w-6 h-6 rounded-lg bg-indigo-600/25 shrink-0" />
-                      <div className="flex-1 space-y-1.5">
-                        <div className={`h-1.5 ${r.tw} bg-slate-500/50 rounded`} />
-                        <div className={`h-1 ${r.cw} bg-slate-600/30 rounded`} />
-                      </div>
-                      <div className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ color: r.color, background: r.bg }}>{r.score}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* floating notifications */}
-            <div className="absolute -left-4 top-10 md:-left-12 hidden md:flex items-center gap-2 bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg shadow-emerald-900/50">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Match score: 91
-            </div>
-            <div className="absolute -right-4 top-16 md:-right-12 hidden md:flex items-center gap-2 bg-white text-slate-900 text-xs font-bold px-3 py-1.5 rounded-full shadow-xl">
-              <Zap className="w-3 h-3 text-indigo-600" /> Tailoring resume…
-            </div>
-            <div className="absolute right-8 -bottom-4 hidden md:flex items-center gap-2 bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
-              <Send className="w-3 h-3" /> Applied to Stripe
-            </div>
-          </div>
+        {/* scroll indicator */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-1.5 opacity-40">
+          <div className="w-px h-8 bg-gradient-to-b from-transparent to-white" />
+          <span className="text-[10px] text-white uppercase tracking-widest">Scroll</span>
         </div>
       </section>
 
