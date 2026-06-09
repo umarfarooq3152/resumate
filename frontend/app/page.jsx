@@ -49,36 +49,24 @@ export default function Landing() {
     <div className="min-h-screen bg-[#08090f] overflow-x-hidden" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
 
       {/* ─── Navbar ──────────────────────────────────────────────────── */}
-      <nav className="fixed top-0 inset-x-0 z-50">
-        <div className="mx-4 mt-4">
-          <div className="flex items-center justify-between px-5 py-3 rounded-2xl"
-            style={{ background: 'rgba(8,9,15,0.7)', backdropFilter: 'blur(20px)', border: '1px solid rgba(34,211,238,0.12)' }}>
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg,#22d3ee,#a855f7)', boxShadow: '0 0 16px rgba(34,211,238,0.4)' }}>
-                <Bot className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-bold text-white tracking-tight">Resumate</span>
-            </Link>
-
-            <div className="hidden md:flex items-center gap-7 text-sm font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              <a href="#how-it-works" className="hover:text-white transition-colors">How it works</a>
-              <a href="#features"     className="hover:text-white transition-colors">Features</a>
-              <a href="#pricing"      className="hover:text-white transition-colors">Pricing</a>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Link href="/login"
-                className="hidden sm:block text-sm font-medium px-4 py-1.5 rounded-lg transition-all text-white/50 hover:text-white">
-                Sign in
-              </Link>
-              <Link href="/register"
-                className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold rounded-xl text-white transition-all"
-                style={{ background: 'linear-gradient(135deg,#22d3ee22,#a855f722)', border: '1px solid rgba(34,211,238,0.3)', boxShadow: '0 0 20px rgba(34,211,238,0.15)' }}>
-                Get started <ChevronRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
+      <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 py-4">
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg,#22d3ee,#a855f7)', boxShadow: '0 0 16px rgba(34,211,238,0.35)' }}>
+            <Bot className="w-4 h-4 text-white" />
           </div>
+          <span className="font-bold text-white tracking-tight">Resumate</span>
+        </Link>
+
+        <div className="flex items-center gap-3">
+          <Link href="/login" className="text-sm font-medium text-white/50 hover:text-white transition-colors px-3 py-1.5">
+            Sign in
+          </Link>
+          <Link href="/register"
+            className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl text-white"
+            style={{ background: 'linear-gradient(135deg,#22d3ee,#a855f7)', boxShadow: '0 0 20px rgba(34,211,238,0.3)' }}>
+            Get started <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </nav>
 
