@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import {
-  MessageCircle, Mail, Search, CheckCircle2, XCircle,
-  ExternalLink, RefreshCw, Loader2, AlertTriangle, Copy,
-  Check, Wifi, WifiOff, LogOut, Smartphone, Link2,
+  MessageCircle, Mail, Search, CheckCircle2,
+  ExternalLink, RefreshCw, Loader2,
+  Wifi, WifiOff, LogOut, Smartphone,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { api } from '../../../lib/api';
@@ -260,10 +260,7 @@ export default function Integrations() {
             ) : (
               <div className="flex flex-col items-center gap-3 py-6">
                 <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-                <p className="text-sm t-b">
-                  {wa.error ? 'Could not reach sidecar — is it running?' : 'Starting WhatsApp sidecar…'}
-                </p>
-                <SidecarStartCommand />
+                <p className="text-sm t-b">Loading QR code…</p>
               </div>
             )}
           </div>
@@ -414,33 +411,13 @@ function HowItWorks({ steps }) {
 
 function SidecarOffline() {
   return (
-    <div className="space-y-3">
-      <div className="flex items-start gap-2 p-3 rounded-xl text-sm
-        bg-red-50 border border-red-200 text-red-700
-        dark:bg-red-500/8 dark:border-red-500/20 dark:text-red-400">
-        <WifiOff className="w-4 h-4 shrink-0 mt-0.5 text-red-500 dark:text-red-400" />
-        <div>
-          <p className="font-semibold">WhatsApp sidecar not running</p>
-          <p className="text-xs mt-0.5">Start it to connect your WhatsApp account.</p>
-        </div>
-      </div>
-      <SidecarStartCommand />
-    </div>
-  );
-}
-
-function SidecarStartCommand() {
-  const cmd = 'cd whatsapp-service && npm start';
-  const [copied, setCopied] = useState(false);
-  const copy = () => { navigator.clipboard.writeText(cmd); setCopied(true); setTimeout(() => setCopied(false), 2000); };
-  return (
-    <div>
-      <p className="text-xs font-medium t-b mb-1.5">Run in a terminal from the project root:</p>
-      <div className="flex items-center gap-2 px-3 py-2 bg-slate-900 rounded-lg font-mono text-xs text-slate-100">
-        <span className="flex-1">{cmd}</span>
-        <button onClick={copy} className="text-slate-400 hover:text-white transition-colors cursor-pointer">
-          {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-        </button>
+    <div className="flex items-start gap-2 p-3 rounded-xl text-sm
+      bg-red-50 border border-red-200 text-red-700
+      dark:bg-red-500/8 dark:border-red-500/20 dark:text-red-400">
+      <WifiOff className="w-4 h-4 shrink-0 mt-0.5 text-red-500 dark:text-red-400" />
+      <div>
+        <p className="font-semibold">WhatsApp service unreachable</p>
+        <p className="text-xs mt-0.5">The WhatsApp service is not responding. Check the Railway deployment for the whatsapp-service.</p>
       </div>
     </div>
   );
