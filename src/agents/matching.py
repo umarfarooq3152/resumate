@@ -35,8 +35,8 @@ class _ScoringFallback:
 class MatchingAgent(BaseAgent):
     name = "matching"
 
-    async def run(self, profile_id: str | None = None, limit: int = 20) -> None:
-        """Score unmatched jobs. If profile_id is None, uses the first profile."""
+    async def run(self, profile_id: str | None = None, job_id: str | None = None, limit: int = 20) -> None:
+        """Score unmatched jobs. If job_id is given, scores only that one job."""
         profile = await self._load_profile(profile_id)
         if not profile:
             log.error("No profile found — create one first via POST /profiles")
@@ -56,8 +56,14 @@ class MatchingAgent(BaseAgent):
         )
         await self._update_profile_embedding(profile["id"], resume_embedding)
 
-        # Fetch unmatched jobs
-        unmatched = await self._fetch_unmatched_jobs(limit)
+        # Fetch only the requested job, or all unmatched jobs
+        if job_id:
+            db = await get_db()
+            resp = await db.table("jobs").select("*").eq("id", job_id).limit(1).execute()
+            unmatched = resp.data or []
+        else:
+            unmatched = await self._fetch_unmatched_jobs(limit)
+
         if not unmatched:
             log.info("[matching] No unmatched jobs found")
             await self.emit("matching.idle", {})

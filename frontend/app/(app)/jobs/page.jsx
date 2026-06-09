@@ -203,7 +203,7 @@ export default function Jobs() {
   const handleRunMatch = async (job) => {
     setMatching(job.id);
     try {
-      await api.runMatching({ profile_id: profileId });
+      await api.runMatching({ profile_id: profileId, job_id: job.id });
       toast('Scoring job against your profile…', 'info');
       let attempts = 0;
       const iv = setInterval(async () => {

@@ -92,6 +92,7 @@ class RunRequest(BaseModel):
     pages: int = Field(default=1, ge=1, le=100)
     days: int = Field(default=7, ge=1, le=90)
     profile_id: str | None = None
+    job_id: str | None = None
 
 
 class ReviewDecision(BaseModel):
@@ -600,7 +601,7 @@ async def run_discovery(body: RunRequest, background_tasks: BackgroundTasks) -> 
 @app.post("/run/matching")
 async def run_matching(body: RunRequest, background_tasks: BackgroundTasks) -> dict[str, str]:
     from src.agents.matching import MatchingAgent
-    background_tasks.add_task(MatchingAgent().run, profile_id=body.profile_id)
+    background_tasks.add_task(MatchingAgent().run, profile_id=body.profile_id, job_id=body.job_id)
     return {"message": "Matching started"}
 
 
