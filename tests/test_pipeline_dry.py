@@ -217,17 +217,23 @@ async def test_application_agent_dry_run():
 
 @pytest.mark.asyncio
 async def test_tracking_agent():
-    """TrackingAgent aggregates pipeline stats correctly."""
-    async def select_side_effect(table, **kwargs):
-        if table == "jobs":
-            return [DB_JOB]
-        if table == "matches":
-            return [FAKE_MATCH]
-        if table == "applications":
-            return [FAKE_APP]
-        return []
+    """TrackingAgent aggregates pipeline stats via 7 parallel COUNT queries."""
+    # 7 queries in gather order: jobs, matches-apply, matches-skip,
+    # apps-total, apps-prepared, apps-submitted, apps-error
+    counts = [1, 1, 0, 1, 1, 0, 0]
+    responses = [MagicMock(count=c) for c in counts]
+    execute_mock = AsyncMock(side_effect=responses)
 
-    with patch("src.agents.tracking.select_rows", side_effect=select_side_effect):
+    chain = MagicMock()
+    chain.execute = execute_mock
+    chain.select.return_value = chain
+    chain.eq.return_value = chain
+    chain.limit.return_value = chain
+
+    db = MagicMock()
+    db.table.return_value = chain
+
+    with patch("src.agents.tracking.get_db", new_callable=AsyncMock, return_value=db):
         from src.agents.tracking import TrackingAgent
         summary = await TrackingAgent().run()
 

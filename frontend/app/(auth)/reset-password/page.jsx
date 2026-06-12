@@ -38,7 +38,6 @@ export default function ResetPassword() {
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
     setLoading(true);
     setError('');
-
     const { error: err } = await getSupabase().auth.updateUser({ password });
     if (err) { setError(err.message); setLoading(false); return; }
     setDone(true);
@@ -48,12 +47,12 @@ export default function ResetPassword() {
   if (done) {
     return (
       <div className="text-center space-y-5">
-        <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto">
-          <ShieldCheck className="w-8 h-8 text-emerald-600" />
+        <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/15 rounded-2xl flex items-center justify-center mx-auto">
+          <ShieldCheck className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Password updated!</h2>
-          <p className="text-sm text-slate-500">Redirecting you to your dashboard…</p>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Password updated!</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Redirecting you to your dashboard…</p>
         </div>
       </div>
     );
@@ -62,19 +61,19 @@ export default function ResetPassword() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-1">Set new password</h1>
-        <p className="text-sm text-slate-500">Choose a strong password for your account.</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Set new password</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Choose a strong password for your account.</p>
       </div>
 
       {error && (
-        <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+        <div className="px-4 py-3 bg-red-50 border border-red-200 dark:bg-red-500/10 dark:border-red-500/20 rounded-xl text-sm text-red-700 dark:text-red-400">
           {error}
         </div>
       )}
 
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">New password</label>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1.5">New password</label>
           <div className="relative">
             <input
               type={showPw ? 'text' : 'password'} required value={password}
@@ -83,7 +82,7 @@ export default function ResetPassword() {
               autoComplete="new-password"
             />
             <button type="button" onClick={() => setShowPw(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer">
               {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
@@ -92,19 +91,19 @@ export default function ResetPassword() {
               <div className="flex gap-1">
                 {[1, 2, 3, 4].map((n) => (
                   <div key={n}
-                    className={`h-1 flex-1 rounded-full transition-all duration-300 ${strength.score >= n ? strength.color : 'bg-slate-200'}`}
+                    className={`h-1 flex-1 rounded-full transition-all duration-300 ${strength.score >= n ? strength.color : 'bg-slate-200 dark:bg-white/10'}`}
                   />
                 ))}
               </div>
-              <p className="text-xs text-slate-500">
-                Strength: <span className="font-semibold text-slate-700">{strength.label}</span>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Strength: <span className="font-semibold text-slate-700 dark:text-slate-200">{strength.label}</span>
               </p>
             </div>
           )}
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Confirm password</label>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1.5">Confirm password</label>
           <input
             type={showPw ? 'text' : 'password'} required value={confirm}
             onChange={e => setConfirm(e.target.value)}
@@ -112,7 +111,7 @@ export default function ResetPassword() {
             autoComplete="new-password" minLength={6}
           />
           {confirm.length > 0 && password !== confirm && (
-            <p className="text-xs text-red-500 mt-1.5">Passwords do not match.</p>
+            <p className="text-xs text-red-500 dark:text-red-400 mt-1.5">Passwords do not match.</p>
           )}
         </div>
 

@@ -255,7 +255,7 @@ export default function Jobs() {
       <div className="card p-4">
         <div className="flex flex-wrap gap-2.5">
           {/* Keywords */}
-          <div className="flex-[2_1_180px] flex items-center gap-2 px-3 py-2 border
+          <div className="flex-[2_1_180px] flex items-center gap-2 px-3 py-2 border rounded-xl
             bg-white border-slate-200 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100
             dark:bg-transparent dark:border-white/10 dark:focus-within:border-indigo-500/50 dark:focus-within:ring-indigo-500/10 transition-all">
             <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -274,7 +274,7 @@ export default function Jobs() {
           </div>
 
           {/* Location */}
-          <div className="flex-[1_1_140px] flex items-center gap-2 px-3 py-2 border
+          <div className="flex-[1_1_140px] flex items-center gap-2 px-3 py-2 border rounded-xl
             bg-white border-slate-200 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100
             dark:bg-transparent dark:border-white/10 dark:focus-within:border-indigo-500/50 dark:focus-within:ring-indigo-500/10 transition-all">
             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -293,7 +293,7 @@ export default function Jobs() {
             <select
               value={days}
               onChange={e => handleDaysChange(Number(e.target.value))}
-              className="pl-8 pr-8 py-2 text-sm border bg-white border-slate-200 text-slate-700 cursor-pointer outline-none appearance-none
+              className="pl-8 pr-8 py-2 text-sm border rounded-xl bg-white border-slate-200 text-slate-700 cursor-pointer outline-none appearance-none
                 dark:bg-transparent dark:border-white/10 dark:text-slate-300"
             >
               {DAYS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -303,13 +303,13 @@ export default function Jobs() {
 
           {/* Search */}
           <button onClick={handleSearch}
-            className="flex-none flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-500 transition-colors cursor-pointer">
+            className="flex-none flex items-center gap-2 px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-500 transition-colors cursor-pointer">
             <Search className="w-3.5 h-3.5" />Search
           </button>
 
           {/* Find Jobs (discovery) */}
           <button onClick={handleDiscover} disabled={discovering}
-            className="flex-none flex items-center gap-2 px-5 py-2 bg-cyan-400 text-slate-900 text-sm font-bold hover:bg-cyan-300 disabled:opacity-60 transition-colors cursor-pointer">
+            className="flex-none flex items-center gap-2 px-5 py-2 rounded-xl bg-cyan-400 text-slate-900 text-sm font-bold hover:bg-cyan-300 disabled:opacity-60 transition-colors cursor-pointer">
             {discovering
               ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Scanning…</>
               : <><Globe className="w-3.5 h-3.5" />Find Jobs</>}

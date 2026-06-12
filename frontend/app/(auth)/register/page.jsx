@@ -76,14 +76,14 @@ export default function Register() {
   if (done) {
     return (
       <div className="text-center space-y-5">
-        <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto">
-          <Mail className="w-7 h-7 text-emerald-600" />
+        <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-500/15 rounded-2xl flex items-center justify-center mx-auto">
+          <Mail className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-900 mb-1.5">Check your inbox</h2>
-          <p className="text-sm text-slate-500 leading-relaxed">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1.5">Check your inbox</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
             We sent a confirmation link to{' '}
-            <strong className="text-slate-700">{email}</strong>.
+            <strong className="text-slate-700 dark:text-slate-200">{email}</strong>.
             <br />Click it to activate your account.
           </p>
         </div>
@@ -91,9 +91,9 @@ export default function Register() {
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors cursor-pointer">
           Go to sign in
         </Link>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-400 dark:text-slate-500">
           Didn&apos;t receive it?{' '}
-          <button className="text-indigo-600 hover:underline font-medium cursor-pointer" onClick={() => setDone(false)}>
+          <button className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer" onClick={() => setDone(false)}>
             Try again
           </button>
         </p>
@@ -104,12 +104,12 @@ export default function Register() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-1">Create your account</h1>
-        <p className="text-sm text-slate-500">Free to start — no credit card needed</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Create your account</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Free to start — no credit card needed</p>
       </div>
 
       {error && (
-        <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+        <div className="px-4 py-3 bg-red-50 border border-red-200 dark:bg-red-500/10 dark:border-red-500/20 rounded-xl text-sm text-red-700 dark:text-red-400">
           {error}
         </div>
       )}
@@ -120,8 +120,11 @@ export default function Register() {
         onClick={signInWithGoogle}
         disabled={googleLoading || loading}
         className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4
-          bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700
-          hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50 cursor-pointer"
+          bg-white border border-slate-200 text-slate-700
+          dark:bg-white/[0.06] dark:border-white/10 dark:text-slate-200
+          rounded-xl text-sm font-semibold
+          hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.10] dark:hover:border-white/20
+          transition-colors disabled:opacity-50 cursor-pointer"
       >
         {googleLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <GoogleIcon />}
         Continue with Google
@@ -129,30 +132,30 @@ export default function Register() {
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-100" />
+          <div className="w-full border-t border-slate-100 dark:border-white/[0.06]" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-white px-3 text-xs text-slate-400">or sign up with email</span>
+          <span className="bg-white dark:bg-[#0d0d12] px-3 text-xs text-slate-400 dark:text-slate-500">or sign up with email</span>
         </div>
       </div>
 
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Full name</label>
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Full name</label>
           <input type="text" required value={fullName}
             onChange={e => setFullName(e.target.value)}
             className="input" placeholder="Jane Smith" autoComplete="name" />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email address</label>
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Email address</label>
           <input type="email" required value={email}
             onChange={e => setEmail(e.target.value)}
             className="input" placeholder="you@example.com" autoComplete="email" />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Password</label>
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Password</label>
           <div className="relative">
             <input
               type={showPw ? 'text' : 'password'} required value={password}
@@ -161,7 +164,7 @@ export default function Register() {
               autoComplete="new-password" minLength={6}
             />
             <button type="button" onClick={() => setShowPw(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer">
               {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
@@ -169,10 +172,10 @@ export default function Register() {
             <div className="mt-2 space-y-1">
               <div className="flex gap-1">
                 {[1,2,3,4].map(n => (
-                  <div key={n} className={`h-1 flex-1 rounded-full transition-all duration-300 ${strength.score >= n ? strength.color : 'bg-slate-200'}`} />
+                  <div key={n} className={`h-1 flex-1 rounded-full transition-all duration-300 ${strength.score >= n ? strength.color : 'bg-slate-200 dark:bg-white/10'}`} />
                 ))}
               </div>
-              <p className="text-xs text-slate-500">Strength: <span className="font-semibold text-slate-700">{strength.label}</span></p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Strength: <span className="font-semibold text-slate-700 dark:text-slate-200">{strength.label}</span></p>
             </div>
           )}
         </div>
@@ -183,9 +186,9 @@ export default function Register() {
         </button>
       </form>
 
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-slate-500 dark:text-slate-400">
         Already have an account?{' '}
-        <Link href="/login" className="font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
+        <Link href="/login" className="font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
           Sign in
         </Link>
       </p>

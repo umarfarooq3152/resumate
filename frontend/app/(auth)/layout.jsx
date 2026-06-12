@@ -1,97 +1,78 @@
 import Link from 'next/link';
 import Logo from '../../components/Logo';
 
-const C = '#22d3ee';
-const P = '#a855f7';
-
 export default function AuthLayout({ children }) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex' }}>
+    <div className="min-h-screen flex bg-white dark:bg-[#0d0d12]">
 
       {/* ── Left: form panel ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }}>
+      <div className="flex-1 flex flex-col bg-white dark:bg-[#0d0d12]">
         {/* top bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 32px', borderBottom: '1px solid #f1f5f9' }}>
-          <Link href="/" style={{ textDecoration: 'none' }}>
+        <div className="flex items-center justify-between px-8 py-[18px] border-b border-slate-100 dark:border-white/[0.06]">
+          <Link href="/" className="no-underline">
             <Logo height={36} />
           </Link>
-          <Link href="/" style={{ fontSize: 12, color: '#94a3b8', textDecoration: 'none' }}>
+          <Link href="/" className="text-xs text-slate-400 dark:text-slate-500 no-underline hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
             ← Back to home
           </Link>
         </div>
 
         {/* form content */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
-          <div style={{ width: '100%', maxWidth: 360 }}>
+        <div className="flex-1 flex items-center justify-center px-6 py-12">
+          <div className="w-full max-w-[360px]">
             {children}
           </div>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: 11, color: '#cbd5e1', paddingBottom: 24, paddingLeft: 16, paddingRight: 16 }}>
+        <p className="text-center text-[11px] text-slate-300 dark:text-slate-600 pb-6 px-4">
           By continuing you agree to our{' '}
-          <span style={{ textDecoration: 'underline', cursor: 'pointer' }}>Terms</span>
+          <span className="underline cursor-pointer">Terms</span>
           {' '}and{' '}
-          <span style={{ textDecoration: 'underline', cursor: 'pointer' }}>Privacy Policy</span>.
+          <span className="underline cursor-pointer">Privacy Policy</span>.
         </p>
       </div>
 
-      {/* ── Right: branding panel (pitch black) ── */}
-      <div style={{
-        display: 'none',
-        width: 480,
-        flexShrink: 0,
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'flex-start',
-        background: '#08090f',
-        padding: '64px 56px',
-        position: 'relative',
-        overflow: 'hidden',
-      }} className="auth-right-panel">
-
+      {/* ── Right: branding panel ── */}
+      <div className="auth-right-panel hidden w-[480px] shrink-0 flex-col justify-center items-start bg-[#08090f] px-14 py-16 relative overflow-hidden">
         {/* top accent line */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${C},${P})` }} />
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-cyan-400 to-violet-500" />
 
         {/* faint grid */}
-        <div style={{
-          position: 'absolute', inset: 0, opacity: 0.04,
-          backgroundImage: `linear-gradient(${C} 1px,transparent 1px),linear-gradient(90deg,${C} 1px,transparent 1px)`,
-          backgroundSize: '48px 48px',
-          pointerEvents: 'none',
-        }} />
+        <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
+          style={{ backgroundImage: 'linear-gradient(#22d3ee 1px,transparent 1px),linear-gradient(90deg,#22d3ee 1px,transparent 1px)', backgroundSize: '48px 48px' }} />
 
         {/* glow */}
-        <div style={{ position: 'absolute', bottom: -80, right: -80, width: 320, height: 320, background: `${P}18`, borderRadius: '50%', filter: 'blur(80px)', pointerEvents: 'none' }} />
+        <div className="absolute -bottom-20 -right-20 w-80 h-80 rounded-full pointer-events-none"
+          style={{ background: '#a855f718', filter: 'blur(80px)' }} />
 
-        <div style={{ position: 'relative' }}>
-          {/* Actual logo — transparent bg shows on black */}
-          <div style={{ marginBottom: 40 }}>
+        <div className="relative">
+          <div className="mb-10">
             <Logo height={56} />
           </div>
 
-          <h2 style={{ fontSize: 36, fontWeight: 900, color: '#fff', lineHeight: 1.1, letterSpacing: '-0.03em', marginBottom: 16 }}>
+          <h2 className="text-[36px] font-black text-white leading-[1.1] tracking-[-0.03em] mb-4">
             Your resume,<br />
-            <span style={{ background: `linear-gradient(135deg,${C},${P})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <span className="bg-gradient-to-br from-cyan-400 to-violet-500 bg-clip-text text-transparent">
               perfectly applied.
             </span>
           </h2>
 
-          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.35)', lineHeight: 1.7, maxWidth: 320, marginBottom: 0 }}>
+          <p className="text-sm text-white/35 leading-relaxed max-w-[320px]">
             AI finds jobs, scores them against your profile,<br />
             tailors every application — you approve each send.
           </p>
 
-          <div style={{ width: 48, height: 2, background: `linear-gradient(90deg,${C},${P})`, margin: '36px 0' }} />
+          <div className="w-12 h-[2px] bg-gradient-to-r from-cyan-400 to-violet-500 my-9" />
 
-          <div style={{ display: 'flex', gap: 40 }}>
+          <div className="flex gap-10">
             {[
               { v: '10+', l: 'Job boards' },
               { v: '0–100', l: 'AI fit score' },
               { v: '100%', l: 'You approve' },
             ].map(({ v, l }) => (
               <div key={l}>
-                <p style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: 0 }}>{v}</p>
-                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{l}</p>
+                <p className="text-[22px] font-black text-white m-0">{v}</p>
+                <p className="text-[10px] text-white/30 mt-0.5 uppercase tracking-[0.1em]">{l}</p>
               </div>
             ))}
           </div>

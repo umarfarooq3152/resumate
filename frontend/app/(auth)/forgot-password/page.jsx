@@ -14,10 +14,8 @@ export default function ForgotPassword() {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     const redirectTo = `${window.location.origin}/auth/callback?next=/reset-password`;
     const { error: err } = await getSupabase().auth.resetPasswordForEmail(email, { redirectTo });
-
     if (err) { setError(err.message); setLoading(false); return; }
     setSent(true);
     setLoading(false);
@@ -26,18 +24,18 @@ export default function ForgotPassword() {
   if (sent) {
     return (
       <div className="text-center space-y-5">
-        <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto">
-          <Mail className="w-8 h-8 text-indigo-600" />
+        <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-500/15 rounded-2xl flex items-center justify-center mx-auto">
+          <Mail className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Reset link sent</h2>
-          <p className="text-sm text-slate-500 leading-relaxed">
-            Check <strong className="text-slate-700">{email}</strong> for a password reset link.
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Reset link sent</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+            Check <strong className="text-slate-700 dark:text-slate-200">{email}</strong> for a password reset link.
             It may take a minute to arrive.
           </p>
         </div>
         <Link href="/login"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors">
+          className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to sign in
         </Link>
       </div>
@@ -47,21 +45,21 @@ export default function ForgotPassword() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-1">Forgot your password?</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Forgot your password?</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Enter your email and we'll send you a reset link.
         </p>
       </div>
 
       {error && (
-        <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+        <div className="px-4 py-3 bg-red-50 border border-red-200 dark:bg-red-500/10 dark:border-red-500/20 rounded-xl text-sm text-red-700 dark:text-red-400">
           {error}
         </div>
       )}
 
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email address</label>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 mb-1.5">Email address</label>
           <input
             type="email" required value={email}
             onChange={e => setEmail(e.target.value)}
@@ -79,7 +77,7 @@ export default function ForgotPassword() {
       </form>
 
       <Link href="/login"
-        className="flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition-colors">
+        className="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
         <ArrowLeft className="w-4 h-4" /> Back to sign in
       </Link>
     </div>

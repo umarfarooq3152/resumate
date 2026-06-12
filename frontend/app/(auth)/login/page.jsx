@@ -55,12 +55,12 @@ export default function Login() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h1>
-        <p className="text-sm text-slate-500">Sign in to continue to your account</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Welcome back</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Sign in to continue to your account</p>
       </div>
 
       {error && (
-        <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+        <div className="px-4 py-3 bg-red-50 border border-red-200 dark:bg-red-500/10 dark:border-red-500/20 rounded-xl text-sm text-red-700 dark:text-red-400">
           {error}
         </div>
       )}
@@ -71,8 +71,11 @@ export default function Login() {
         onClick={signInWithGoogle}
         disabled={googleLoading || loading}
         className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4
-          bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700
-          hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50 cursor-pointer"
+          bg-white border border-slate-200 text-slate-700
+          dark:bg-white/[0.06] dark:border-white/10 dark:text-slate-200
+          rounded-xl text-sm font-semibold
+          hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-white/[0.10] dark:hover:border-white/20
+          transition-colors disabled:opacity-50 cursor-pointer"
       >
         {googleLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <GoogleIcon />}
         Continue with Google
@@ -80,16 +83,16 @@ export default function Login() {
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-100" />
+          <div className="w-full border-t border-slate-100 dark:border-white/[0.06]" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-white px-3 text-xs text-slate-400">or continue with email</span>
+          <span className="bg-white dark:bg-[#0d0d12] px-3 text-xs text-slate-400 dark:text-slate-500">or continue with email</span>
         </div>
       </div>
 
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email address</label>
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Email address</label>
           <input
             type="email" required value={email}
             onChange={e => setEmail(e.target.value)}
@@ -100,7 +103,7 @@ export default function Login() {
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-semibold text-slate-600">Password</label>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Password</label>
             <Link href="/forgot-password"
               className="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">
               Forgot password?
@@ -126,9 +129,9 @@ export default function Login() {
         </button>
       </form>
 
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-slate-500 dark:text-slate-400">
         Don&apos;t have an account?{' '}
-        <Link href="/register" className="font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
+        <Link href="/register" className="font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
           Sign up free
         </Link>
       </p>
