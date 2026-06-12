@@ -5,7 +5,7 @@ import logging
 from typing import Any
 
 from src.agents.base import BaseAgent
-from src.db.client import get_db, select_rows
+from src.db.client import get_db
 
 log = logging.getLogger(__name__)
 
@@ -14,31 +14,57 @@ class TrackingAgent(BaseAgent):
     name = "tracking"
 
     async def run(self) -> dict[str, Any]:
-        """Return a summary of the current pipeline state."""
-        jobs = await select_rows("jobs")
-        matches = await select_rows("matches")
-        applications = await select_rows("applications")
+        """Return a summary of the current pipeline state using COUNT queries."""
+        import asyncio as _asyncio
+        db = await get_db()
+
+        (
+            jobs_r, match_apply_r, match_skip_r,
+            apps_r, prep_r, sub_r, err_r,
+        ) = await _asyncio.gather(
+            db.table("jobs").select("id", count="exact").limit(1).execute(),
+            db.table("matches").select("id", count="exact").eq("decision", "apply").limit(1).execute(),
+            db.table("matches").select("id", count="exact").eq("decision", "skip").limit(1).execute(),
+            db.table("applications").select("id", count="exact").limit(1).execute(),
+            db.table("applications").select("id", count="exact").eq("status", "prepared").limit(1).execute(),
+            db.table("applications").select("id", count="exact").eq("status", "submitted").limit(1).execute(),
+            db.table("applications").select("id", count="exact").eq("status", "error").limit(1).execute(),
+        )
 
         summary = {
-            "jobs_discovered": len(jobs),
-            "jobs_matched": len([m for m in matches if m["decision"] == "apply"]),
-            "jobs_skipped": len([m for m in matches if m["decision"] == "skip"]),
-            "total_applications": len(applications),
-            "applications_prepared": len([a for a in applications if a["status"] == "prepared"]),
-            "applications_submitted": len([a for a in applications if a["status"] == "submitted"]),
-            "applications_error": len([a for a in applications if a["status"] == "error"]),
+            "jobs_discovered":        jobs_r.count or 0,
+            "jobs_matched":           match_apply_r.count or 0,
+            "jobs_skipped":           match_skip_r.count or 0,
+            "total_applications":     apps_r.count or 0,
+            "applications_prepared":  prep_r.count or 0,
+            "applications_submitted": sub_r.count or 0,
+            "applications_error":     err_r.count or 0,
         }
         await self.emit("tracking.snapshot", summary)
         log.info("[tracking] %s", summary)
         return summary
 
     async def get_pipeline(self) -> list[dict[str, Any]]:
-        """Return full joined pipeline view for the dashboard."""
+        """Return joined pipeline view for the dashboard (most recent 500 jobs)."""
+        import asyncio as _asyncio
         db = await get_db()
-        # Fetch each table and join in Python (avoids needing a custom RPC)
-        jobs = {j["id"]: j for j in await select_rows("jobs")}
-        matches = {m["job_id"]: m for m in await select_rows("matches")}
-        applications = {a["job_id"]: a for a in await select_rows("applications")}
+        # Limit to 500 most-recently discovered jobs to avoid loading the entire table
+        recent_jobs_resp = await db.table("jobs").select("*").order("discovered_at", desc=True).limit(500).execute()
+        job_ids = [j["id"] for j in (recent_jobs_resp.data or [])]
+
+        if job_ids:
+            matches_resp, apps_resp = await _asyncio.gather(
+                db.table("matches").select("*").in_("job_id", job_ids).execute(),
+                db.table("applications").select("*").in_("job_id", job_ids).execute(),
+            )
+            match_rows = matches_resp.data or []
+            app_rows = apps_resp.data or []
+        else:
+            match_rows, app_rows = [], []
+
+        jobs = {j["id"]: j for j in (recent_jobs_resp.data or [])}
+        matches = {m["job_id"]: m for m in match_rows}
+        applications = {a["job_id"]: a for a in app_rows}
 
         rows = []
         for job_id, job in jobs.items():

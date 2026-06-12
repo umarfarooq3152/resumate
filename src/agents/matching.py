@@ -10,8 +10,7 @@ import logging
 from typing import Any
 
 from src.agents.base import BaseAgent
-from src.config import settings
-from src.db.client import get_db, insert_row, select_rows, upsert_row
+from src.db.client import get_db, select_rows, upsert_row
 from src.llm.gemini import embed_text, score_job, precompute_resume_chunks
 
 log = logging.getLogger(__name__)

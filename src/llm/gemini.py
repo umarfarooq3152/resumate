@@ -451,9 +451,11 @@ async def score_job(resume_text: str, job_description: str) -> ScoringResult:
         else:
             raise
     if not text or not text.strip():
-        log.warning("score_job received empty response — returning fallback")
-        return ScoringResult(score=0.0, reasoning="empty response", decision="skip")
-    data = json.loads(_extract_json(text))
+        raise ValueError("score_job received empty response — will retry next run")
+    try:
+        data = json.loads(_extract_json(text))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"score_job: model returned non-JSON output: {exc}") from exc
     raw = int(data.get("score_0_to_10", 0))
     return ScoringResult(
         score=raw * 10,  # store as 0-100
@@ -553,6 +555,7 @@ async def write_cover_letter(
         f"<resume>\n{resume_ctx}\n</resume>\n\n"
         f"<job_description>\n{job_description[:3_000]}\n</job_description>"
     )
+    text: str | None = None
     try:
         client = _get_client()
         response = await client.aio.models.generate_content(
@@ -560,12 +563,16 @@ async def write_cover_letter(
             contents=prompt,
             config=types.GenerateContentConfig(system_instruction=_COVER_SYSTEM),
         )
-        return response.text
+        text = (response.text or "").strip()
     except Exception as exc:
         if settings.groq_configured and _is_gemini_retriable(exc):
             log.warning("Gemini write_cover_letter failed (%s) — falling back to Groq", exc)
-            return await _groq_generate(_COVER_SYSTEM, prompt)
-        raise
+            text = (await _groq_generate(_COVER_SYSTEM, prompt) or "").strip()
+        else:
+            raise
+    if not text:
+        raise ValueError("write_cover_letter received empty response from all providers")
+    return text
 
 
 # ---------------------------------------------------------------------------

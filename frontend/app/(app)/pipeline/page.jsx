@@ -184,7 +184,7 @@ export default function Pipeline() {
                   <p className="text-xs t-b mt-0.5 leading-relaxed">{step.desc}</p>
                 </div>
               </div>
-              <button onClick={() => run(step.key)} disabled={disabled} cursor-pointer
+              <button onClick={() => run(step.key)} disabled={disabled}
                 className={clsx(
                   'self-start flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer',
                   isRunning

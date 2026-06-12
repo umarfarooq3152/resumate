@@ -55,7 +55,7 @@ export default function FormsPage() {
 
   const analyze = async () => {
     if (!url.trim()) return;
-    if (!url.includes('docs.google.com/forms') && !url.includes('forms.gle')) {
+    if (!url.includes('docs.google.com/forms') && !url.includes('forms.gle') && !url.includes('forms.google.com')) {
       toast('Only Google Forms URLs are supported', 'error');
       return;
     }
