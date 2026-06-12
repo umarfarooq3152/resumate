@@ -115,6 +115,7 @@ export default function Jobs() {
 
   // Stable ref — holds current query params so load() never reads stale state
   const qRef = useRef({ tab: 'all', location: '', keywords: '', days: 7, page: 0 });
+  const matchPollRef = useRef(null);
 
   const load = useCallback(async (overrides = {}) => {
     const q = { ...qRef.current, ...overrides };
@@ -159,6 +160,7 @@ export default function Jobs() {
       }
       load({ tab: 'all', location: '', keywords: '', days: 7, page: 0 });
     })();
+    return () => clearInterval(matchPollRef.current);
   }, []); // runs once — no auto-refresh after this
 
   const handleTabChange = (newTab) => {
@@ -201,12 +203,13 @@ export default function Jobs() {
 
   // Poll silently every 5s up to 60s until the specific job gets a score
   const handleRunMatch = async (job) => {
+    clearInterval(matchPollRef.current);
     setMatching(job.id);
     try {
       await api.runMatching({ profile_id: profileId, job_id: job.id });
       toast('Scoring job against your profile…', 'info');
       let attempts = 0;
-      const iv = setInterval(async () => {
+      matchPollRef.current = setInterval(async () => {
         attempts++;
         const res = await api.getJobs({ ...qRef.current, limit: PAGE_SIZE, offset: qRef.current.page * PAGE_SIZE }).catch(() => null);
         if (res?.jobs) {
@@ -214,14 +217,14 @@ export default function Jobs() {
           setTotal(res.total ?? 0);
           const scored = res.jobs.find(j => j.id === job.id && j.score != null);
           if (scored) {
-            clearInterval(iv);
+            clearInterval(matchPollRef.current);
             setMatching(null);
             toast(`Match score: ${Math.round(scored.score)}/100`, 'success');
             return;
           }
         }
         if (attempts >= 12) {
-          clearInterval(iv);
+          clearInterval(matchPollRef.current);
           setMatching(null);
           toast('Scoring took too long — refresh to check', 'info');
         }

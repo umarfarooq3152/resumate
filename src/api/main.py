@@ -22,11 +22,6 @@ log = logging.getLogger(__name__)
 app = FastAPI(title="Job Agent", version="0.3.0")
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

@@ -68,6 +68,10 @@ class TailoringAgent(BaseAgent):
         company: str = job.get("company", "")
         title: str = job.get("title", "")
 
+        if not resume_text.strip():
+            log.warning("[tailoring] Profile has no resume_text for job %s — skipping", job_id)
+            return
+
         # Pre-warm the chunk cache so both tailor and cover letter calls share it.
         # get_relevant_resume_context() is then just a cosine-sort + concatenation.
         if len(resume_text) > 3_000:

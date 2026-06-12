@@ -19,19 +19,6 @@ log = logging.getLogger(__name__)
 MIN_SCORE = 60  # below this cosine similarity pre-filter score we skip immediately
 
 
-class _ScoringFallback:
-    """Returned when Gemini scoring fails after all retries."""
-    score: float = 0.0
-    reasoning: str = "scoring error"
-    decision: str = "skip"
-    strengths: list = []
-    gaps: list = []
-
-    def __init__(self):
-        self.strengths = []
-        self.gaps = []
-
-
 class MatchingAgent(BaseAgent):
     name = "matching"
 
@@ -74,6 +61,12 @@ class MatchingAgent(BaseAgent):
 
         for job in unmatched:
             result = await self._score_one(job, resume_text)
+            if result is None:
+                # Scoring failed (rate limit / error) — don't write to matches so
+                # this job stays unmatched and will be retried on the next run.
+                skipped += 1
+                continue
+
             row = {
                 "job_id": job["id"],
                 "score": result.score,
@@ -100,6 +93,7 @@ class MatchingAgent(BaseAgent):
         log.info("[matching] applied=%d skipped=%d", applied, skipped)
 
     async def _score_one(self, job: dict[str, Any], resume_text: str):
+        """Returns a score result object, or None if all attempts failed."""
         for attempt in range(3):
             try:
                 return await score_job(resume_text, job.get("description", ""))
@@ -112,9 +106,10 @@ class MatchingAgent(BaseAgent):
                     log.warning("Gemini rate limit hit, waiting %ds (attempt %d/3)", wait, attempt + 1)
                     await asyncio.sleep(wait)
                     continue
-                log.warning("Gemini scoring failed for job %s: %s — skip", job.get("id"), exc)
+                log.warning("Gemini scoring failed for job %s: %s", job.get("id"), exc)
                 break
-        return _ScoringFallback()
+        log.warning("[matching] All scoring attempts failed for job %s — will retry next run", job.get("id"))
+        return None
 
     async def _load_profile(self, profile_id: str | None) -> dict[str, Any] | None:
         if profile_id:
