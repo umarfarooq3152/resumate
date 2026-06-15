@@ -38,12 +38,17 @@ _GMAIL_SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",    # mark as read
 ]
 
-# Subject-only pre-filter — must match at least one hiring/interview signal.
+# Subject-only pre-filter — must match at least one professional opportunity signal.
 # Applied ONLY to the subject line so body content can't create false positives.
+# Keep this LOOSE — the LLM classifier is the real gate against false positives.
 _JOB_SUBJECT_RE = re.compile(
-    r"\b(interview|job offer|position|hiring|recruiter|opportunit"
+    r"\b(interview|job\b|offer|position|hiring|hire|recruiter|opportunit\w*"
     r"|we.{0,8}like to|interested in your|your (profile|background|experience)"
-    r"|connect with you|role at|opening at|vacancy)\b",
+    r"|connect with you|role\b|opening|vacancy|talent|software|developer|engineer"
+    r"|internship|full.?time|part.?time|contract"
+    r"|fellowship|scholar\w*|grant|stipend|award|program\w*|cohort|research"
+    r"|admission|apply now|application open|call for|funded|bursary|training"
+    r"|bootcamp|residency|apprentice\w*|placement)\b",
     re.IGNORECASE,
 )
 
@@ -199,26 +204,32 @@ async def scan_inbox(user_id: str, select_rows, insert_row, max_results: int = 3
     creds = await _load_credentials(user_id, select_rows)
     service = await asyncio.to_thread(build, "gmail", "v1", credentials=creds)
 
-    # Gmail query — catch recruiter reach-outs whether subject is specific or generic.
-    # Positive: hiring signal in EITHER the subject line OR the email body.
-    # Negative: strip newsletters, ATS auto-confirmations, automated senders.
+    # Gmail query — broad positive gate so nothing worth replying to is missed.
+    # The LLM classifier (step 3 in _parse_gmail_message) handles false positives.
     query = (
-        # Positive gate — subject OR body must contain a hiring signal
+        # Positive gate — subject OR body must contain any professional opportunity signal
         "("
-        "subject:(\"interview\" OR \"job offer\" OR \"job opportunity\" OR \"career opportunity\" "
-        "OR \"exciting opportunity\" OR \"we'd like to\" OR \"I came across your profile\" "
-        "OR \"position at\" OR \"role at\" OR \"opening at\" OR \"hiring\" "
-        "OR \"reaching out\" OR \"your profile\" OR \"your background\") "
+        "subject:(interview OR opportunity OR job OR hiring OR hire OR position "
+        "OR opening OR vacancy OR role OR talent OR recruiter OR offer OR internship "
+        "OR developer OR engineer OR software OR fellowship OR scholarship OR grant "
+        "OR stipend OR award OR program OR cohort OR research OR admission "
+        "OR \"call for\" OR funded OR bursary OR training OR bootcamp "
+        "OR residency OR apprentice OR placement OR \"reach out\" OR \"want to hire\") "
         "OR "
-        "(\"engineering team\" OR \"introductory call\" OR \"growing our team\" "
+        "(\"want to hire\" OR \"hire you\" OR \"want to connect\" "
+        "OR \"engineering team\" OR \"introductory call\" OR \"growing our team\" "
         "OR \"joining our team\" OR \"talent acquisition\" OR \"your skillset\" "
         "OR \"your experience\" OR \"fit for the role\" OR \"connect with you\" "
         "OR \"great fit for\" OR \"we are looking for\" OR \"job opportunity\" "
         "OR \"career opportunity\" OR \"I came across your\" OR \"your resume\" "
         "OR \"your background\" OR \"your portfolio\" OR \"we are hiring\" "
-        "OR \"open to new opportunities\" OR \"job opening\") "
+        "OR \"open to new opportunities\" OR \"job opening\" OR \"interested for a job\" "
+        "OR \"work with you\" OR \"interested in you\" "
+        "OR \"fellowship program\" OR \"scholarship program\" OR \"apply now\" "
+        "OR \"applications open\" OR \"fully funded\" OR \"paid fellowship\" "
+        "OR \"research opportunity\" OR \"cohort\" OR \"selected candidates\") "
         ") "
-        # Negative: exclude automated / bulk mail
+        # Negative: exclude automated / bulk mail and non-opportunity clutter
         "-subject:(\"job alert\" OR \"jobs matching\" OR \"new jobs for you\" "
         "OR \"jobs you might\" OR \"daily digest\" OR \"weekly digest\" "
         "OR \"application received\" OR \"thank you for applying\" "
@@ -287,14 +298,19 @@ async def _parse_gmail_message(
     # ── 2. Subject pre-filter — skip only when subject is long AND has no signal.
     #       Short subjects (≤ 8 chars, e.g. "Hr", "Hi", "Hello") pass through
     #       to the LLM; they often come from personal recruiter reach-outs.
+    #       Keep this LOOSE — the LLM is the real quality gate.
     subject_stripped = subject.strip()
     if len(subject_stripped) > 8 and not _JOB_SUBJECT_RE.search(subject_stripped):
-        # Also pass through if body has strong recruiter signals
+        # Also pass through if body has any professional opportunity signal
         _BODY_SIGNAL_RE = re.compile(
-            r"\b(engineering team|introductory call|growing our team|joining our team"
-            r"|talent acquisition|fit for the role|great fit for|we are looking"
-            r"|job opportunity|career opportunity|your background|your skillset"
-            r"|your experience|your resume|we are hiring|job opening)\b",
+            r"\b(hire|hiring|job|opportunity|interview|position|role|opening|vacancy"
+            r"|recruiter|talent|engineer|developer|software|internship|work with you"
+            r"|want to hire|interested for|we are looking|great fit|reach out"
+            r"|engineering team|introductory call|your background|your experience"
+            r"|your resume|we are hiring|job opening|career"
+            r"|fellowship|scholar\w*|grant|stipend|funded|bursary|cohort|research"
+            r"|apply now|applications open|selected candidate|program|placement"
+            r"|bootcamp|residency|apprentice\w*|training program)\b",
             re.IGNORECASE,
         )
         if not _BODY_SIGNAL_RE.search(body_text[:1_000]):

@@ -36,10 +36,15 @@ class MatchingAgent(BaseAgent):
         # Embed resume once — both for pgvector storage and chunk-level retrieval cache.
         # precompute_resume_chunks() populates _CHUNK_CACHE so that every score_job()
         # call below only needs to embed the job description (not the resume chunks again).
-        resume_embedding, _ = await asyncio.gather(
-            embed_text(resume_text),
-            precompute_resume_chunks(resume_text),
-        )
+        try:
+            resume_embedding, _ = await asyncio.gather(
+                embed_text(resume_text),
+                precompute_resume_chunks(resume_text),
+            )
+        except Exception as exc:
+            log.warning("[matching] Resume embedding failed (%s) — continuing without vector index", exc)
+            resume_embedding = []
+            await precompute_resume_chunks(resume_text)
         await self._update_profile_embedding(profile["id"], resume_embedding)
 
         # Fetch only the requested job, or all unmatched jobs
@@ -134,10 +139,10 @@ class MatchingAgent(BaseAgent):
         if resp.data:
             return resp.data
 
-        # Fallback if RPC doesn't exist yet: fetch all jobs then filter
-        all_jobs = await select_rows("jobs", limit=limit * 3)
+        # Fallback if RPC doesn't exist yet: fetch recent jobs then filter
+        all_jobs = await select_rows("jobs", limit=limit * 5)
         matched_ids = {
-            r["job_id"] for r in await select_rows("matches")
+            r["job_id"] for r in await select_rows("matches", limit=limit * 5)
         }
         unmatched = [j for j in all_jobs if j["id"] not in matched_ids]
         return unmatched[:limit]

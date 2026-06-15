@@ -706,16 +706,23 @@ async def _run_pipeline(body: RunRequest) -> None:
 
     raw_kw = body.keywords if isinstance(body.keywords, str) else ", ".join(body.keywords)
     keywords = raw_kw.strip() or "software engineer"
-    await DiscoveryAgent().run(keywords=keywords, location=body.location, pages=body.pages)
-    await bus.drain()
-    await MatchingAgent().run(profile_id=body.profile_id)
-    await bus.drain()
-    await TailoringAgent().run()
-    await bus.drain()
-    await ApplicationAgent().run()
-    await bus.drain()
-    summary = await TrackingAgent().run()
-    log.info("Pipeline complete: %s", summary)
+
+    steps = [
+        ("discovery", lambda: DiscoveryAgent().run(keywords=keywords, location=body.location, pages=body.pages)),
+        ("matching",  lambda: MatchingAgent().run(profile_id=body.profile_id)),
+        ("tailoring", lambda: TailoringAgent().run()),
+        ("application", lambda: ApplicationAgent().run()),
+        ("tracking",  lambda: TrackingAgent().run()),
+    ]
+    for step_name, step_fn in steps:
+        try:
+            result = await step_fn()
+            await bus.drain()
+            if step_name == "tracking":
+                log.info("Pipeline complete: %s", result)
+        except Exception as exc:
+            log.error("[pipeline] %s step failed: %s", step_name, exc, exc_info=True)
+            # Continue remaining steps so a single agent failure doesn't abort everything
 
 
 # ---------------------------------------------------------------------------

@@ -270,16 +270,21 @@ Classify as exactly one of these four types:
 
 INTERVIEW — An email from a real person inviting or scheduling the recipient for a job interview, assessment, or technical test for a specific role.
 
-OPPORTUNITY — A recruiter or hiring manager personally reaching out about a specific job role, asking if the recipient is interested. NOT a mass blast or digest.
+OPPORTUNITY — Any of the following from a real person or legitimate organisation:
+  • A recruiter or hiring manager personally reaching out about a job, role, or position
+  • An invitation to apply for a fellowship, scholarship, grant, or funded program
+  • A cold outreach about a research opportunity, residency, bootcamp, apprenticeship, or placement
+  • Someone saying they want to hire the recipient or asking if they are available
+  NOT mass blasts, digests, or automated newsletters.
 
 REJECTION — A polite rejection, regret, or "we went with another candidate" email. No reply is needed.
 
-OTHER — Everything else: job alert digests, newsletters, automated ATS confirmations ("We received your application"), application status updates with no next step, promotional emails, LinkedIn notifications, mass marketing, general company updates.
+OTHER — Everything else: job alert digests, newsletters, automated ATS confirmations ("We received your application"), application status updates with no next step, promotional emails, LinkedIn notifications, mass marketing, general company updates, OTP/security emails, invoices, receipts.
 
 Rules — classify as OTHER if ANY of these apply:
 - Sender address contains: noreply, no-reply, donotreply, alerts, notifications, mailer
 - Subject starts with: "Job Alert", "New jobs for you", "Jobs matching", "Your application", "Application received"
-- No specific role or company is personally mentioned
+- No specific role, fellowship, scholarship, or company is personally mentioned
 - Reads like a template blast with no personal greeting
 - No actionable next step for the recipient
 
