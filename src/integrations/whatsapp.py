@@ -123,6 +123,21 @@ _JOB_BOARD_DOMAINS = {
 _HR_PREFIXES = ("hr", "hiring", "careers", "career", "recruit", "talent", "jobs", "apply", "people", "work", "join")
 _EMAIL_BARE_RE = re.compile(r"^[\w.+'\-]+@[\w.\-]+\.[a-zA-Z]{2,}$")
 
+# Natural-language draft commands — needed because voice notes get transcribed
+# to free text (e.g. "approve, make it shorter, or send") and never hit the
+# exact-match "APPROVE" / "EDIT:" checks below. An edit request always wins
+# over an approve request in the same message, since blindly sending right
+# after a requested revision would skip the user's review of that revision.
+_EDIT_INTENT_RE = re.compile(
+    r"\b(short(?:er|en)?|longer|formal|casual|change|revise|rewrite|reword|tone"
+    r"|make it|fix|polish|improve|less\s+\w+|more\s+\w+)\b",
+    re.IGNORECASE,
+)
+_APPROVE_INTENT_RE = re.compile(
+    r"\b(approve|send it|send this|send the email|go ahead|looks good|good to go|confirm)\b",
+    re.IGNORECASE,
+)
+
 
 def _scan_for_email(text: str) -> str | None:
     """Scan raw text for the best candidate HR/recruiter email."""
@@ -248,6 +263,18 @@ async def process_incoming(
         # User replied with just an email address → set it as hr_email
         if _EMAIL_BARE_RE.match(text.strip()):
             return await _handle_edit(draft, f"hr_email = {text.strip()}", db_get)
+
+        # Natural-language commands — mainly for transcribed voice notes, which
+        # never match the exact-string checks above (e.g. "approve, make it
+        # shorter, or send"). An edit request always wins over approve in the
+        # same message — sending immediately after a requested revision would
+        # skip the user's chance to review that revision.
+        wants_edit = bool(_EDIT_INTENT_RE.search(text))
+        wants_approve = bool(_APPROVE_INTENT_RE.search(text))
+        if wants_edit:
+            return await _handle_edit(draft, text.strip(), db_get)
+        if wants_approve:
+            return await _handle_approve(draft, db_get)
 
         # New job message forwarded → silently drop the old draft, process fresh
         if _is_new_job_message:

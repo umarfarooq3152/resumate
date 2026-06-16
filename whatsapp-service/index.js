@@ -284,11 +284,18 @@ async function startSocket(sessionId, state, retryCount = 0) {
           startSocket(sessionId, state, retryCount + 1).catch(e => console.error(`[${sessionId}] reconnect failed:`, e.message));
         }, delay);
       } else {
-        // If this session never connected and has hit too many attempts,
-        // wipe stale auth so the next retry produces a fresh QR
-        if (!state.connectedPhone && retryCount >= 10) {
-          console.log(`[${sessionId}] Never connected after ${retryCount} attempts — clearing auth for fresh start`);
+        // Wipe stale auth once a session — whether it ever connected or has
+        // since degraded (e.g. repeated Bad MAC / 408 loops from a desynced
+        // local session store) — has failed too many times in a row since
+        // its last good connection. Without this, a previously-connected
+        // session that goes bad never recovers because state.connectedPhone
+        // stays set forever, masking the failure streak.
+        state.failuresSinceConnect = (state.failuresSinceConnect || 0) + 1;
+        if (state.failuresSinceConnect >= 10) {
+          console.log(`[${sessionId}] ${state.failuresSinceConnect} consecutive failures — clearing auth for fresh QR`);
           fs.rmSync(authPath, { recursive: true, force: true });
+          state.connectedPhone = null;
+          state.failuresSinceConnect = 0;
         }
         // Reconnect with exponential backoff (cap 60s)
         const delay = Math.min(3_000 * Math.pow(2, retryCount), 60_000);
@@ -304,6 +311,7 @@ async function startSocket(sessionId, state, retryCount = 0) {
       if (state.cleanupTimer) { clearTimeout(state.cleanupTimer); state.cleanupTimer = null; }
       state.isReady  = true;
       state.qrDataUrl = null;
+      state.failuresSinceConnect = 0;  // session is healthy again
       retryCount = 0;  // reset so a brief drop reconnects fast
 
       // sock.user.id is like "923277729002:0@s.whatsapp.net"
@@ -413,6 +421,7 @@ function createSession(sessionId) {
     processingChats: new Set(),
     sentByBot:     new Map(),
     cleanupTimer:  null,
+    failuresSinceConnect: 0,
   };
 
   sessions.set(sessionId, state);

@@ -158,13 +158,18 @@ async def _load_credentials(user_id: str, select_rows):
         except ValueError:
             pass
 
+    # Don't pass `scopes` here — google-auth's refresh() includes an explicit
+    # `scope` param in the refresh_token grant when scopes is set. If the stored
+    # refresh_token was issued under a narrower/different scope set than the
+    # current _GMAIL_SCOPES (e.g. gmail.modify was added after the user connected),
+    # Google rejects the refresh with `invalid_scope`. Omitting it lets Google
+    # honor whatever scope the refresh_token actually carries.
     creds = Credentials(
         token=row["access_token"],
         refresh_token=row["refresh_token"],
         token_uri="https://oauth2.googleapis.com/token",
         client_id=settings.gmail_client_id,
         client_secret=settings.gmail_client_secret,
-        scopes=_GMAIL_SCOPES,
         expiry=expiry,
     )
 
