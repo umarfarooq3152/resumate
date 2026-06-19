@@ -90,6 +90,12 @@ class RunRequest(BaseModel):
     job_id: str | None = None
 
 
+class InternshipRunRequest(BaseModel):
+    keywords: list[str] | str = "software"
+    location: str = ""
+    mode: Literal["internships", "fellowships", "both"] = "both"
+
+
 class ReviewDecision(BaseModel):
     decision: Literal["approved", "rejected"]
     notes: str = ""
@@ -370,6 +376,58 @@ async def get_job(job_id: str) -> dict[str, Any]:
     return rows[0]
 
 
+@app.get("/internships")
+async def list_internships(
+    opportunity_type: str = "all",   # "all" | "internship" | "fellowship"
+    days: int = 30,
+    location: str = "",
+    keywords: str = "",
+    limit: int = 20,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """List internships and fellowships with pagination and filters."""
+    from datetime import timedelta
+    db = await get_db()
+
+    query = db.table("jobs").select(
+        "id,source,title,company,location,apply_url,apply_method,apply_type,"
+        "opportunity_type,posted_at,discovered_at,description,"
+        "matches(score,decision)",
+        count="exact",
+    )
+
+    if opportunity_type in ("internship", "fellowship"):
+        query = query.eq("opportunity_type", opportunity_type)
+    else:
+        query = query.in_("opportunity_type", ["internship", "fellowship"])
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    query = query.gte("discovered_at", cutoff)
+
+    if location:
+        query = query.ilike("location", f"%{location.strip()}%")
+
+    if keywords:
+        kw_list = [k.strip() for k in keywords.split(",") if k.strip()][:6]
+        if kw_list:
+            parts = [f"title.ilike.%{kw}%,company.ilike.%{kw}%" for kw in kw_list]
+            query = query.or_(",".join(parts))
+
+    resp = await query.order("discovered_at", desc=True).range(offset, offset + limit - 1).execute()
+    items = resp.data or []
+    total = resp.count or 0
+
+    for item in items:
+        raw = item.pop("matches", None)
+        match_list = [raw] if isinstance(raw, dict) and raw else (raw or [])
+        m = match_list[0] if match_list else {}
+        item["score"]    = m.get("score")
+        item["decision"] = m.get("decision")
+        item["matched"]  = bool(m)
+
+    return {"items": items, "total": total, "offset": offset, "limit": limit}
+
+
 # ---------------------------------------------------------------------------
 # Matches (AI scored + human review status)
 # ---------------------------------------------------------------------------
@@ -605,6 +663,30 @@ async def run_discovery(body: RunRequest, background_tasks: BackgroundTasks) -> 
         "message": f"Discovery started — searching {', '.join(sources)}",
         "sources": sources,
         "note": note,
+    }
+
+
+@app.post("/run/internships")
+async def run_internship_discovery(body: InternshipRunRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
+    from src.agents.internship_discovery import InternshipDiscoveryAgent
+    raw_kw = body.keywords if isinstance(body.keywords, str) else ", ".join(body.keywords)
+    keywords = raw_kw.strip() or "software"
+    background_tasks.add_task(
+        InternshipDiscoveryAgent().run,
+        keywords=keywords,
+        location=body.location,
+        mode=body.mode,
+    )
+    sources: list[str] = []
+    if body.mode in ("internships", "both"):
+        sources.extend(["Internshala", "Unstop", "LinkedIn", "Remotive"])
+    if body.mode in ("fellowships", "both"):
+        sources.extend(["Outreachy", "Unstop", "LinkedIn"])
+    unique_sources = list(dict.fromkeys(sources))
+    return {
+        "message": f"Internship/fellowship discovery started — {', '.join(unique_sources)}",
+        "sources": unique_sources,
+        "mode": body.mode,
     }
 
 

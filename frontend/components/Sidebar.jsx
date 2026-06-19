@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, User, Briefcase, FileText,
   Activity, Settings, LogOut, ClipboardList, X,
-  Link2, Mail, Sun, Moon,
+  Link2, Mail, Sun, Moon, GraduationCap,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { getSupabase } from '../lib/supabase';
@@ -16,8 +16,9 @@ import Logo from './Logo';
 const NAV = [
   { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/profile',      icon: User,            label: 'Profile' },
-  { href: '/jobs',         icon: Briefcase,       label: 'Jobs',         badge: 'match_pending' },
-  { href: '/applications', icon: FileText,        label: 'Applications', badge: 'application_pending' },
+  { href: '/jobs',          icon: Briefcase,       label: 'Jobs',          badge: 'match_pending' },
+  { href: '/internships',   icon: GraduationCap,   label: 'Internships' },
+  { href: '/applications',  icon: FileText,        label: 'Applications',  badge: 'application_pending' },
   { href: '/email-drafts', icon: Mail,            label: 'Email Drafts', badge: 'draft_pending' },
   { href: '/forms',        icon: ClipboardList,   label: 'Form Fill' },
   { href: '/pipeline',     icon: Activity,        label: 'Pipeline' },

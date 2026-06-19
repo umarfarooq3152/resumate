@@ -114,6 +114,15 @@ export const api = {
   submitForm:   (data) => req('/forms/submit',  { method: 'POST', body: JSON.stringify(data) }),
   getFormSubmissions: (limit = 50) => req(`/forms/submissions?limit=${limit}`),
 
+  // Internships & Fellowships
+  getInternships: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries({ limit: 20, offset: 0, ...params }).filter(([, v]) => v != null && v !== '')
+    ).toString();
+    return req(`/internships?${qs}`);
+  },
+  runInternships: (data) => req('/run/internships', { method: 'POST', body: JSON.stringify(data) }),
+
   // Run triggers
   runDiscovery:   (data) => req('/run/discovery',  { method: 'POST', body: JSON.stringify(data) }),
   runMatching:    (data) => req('/run/matching',   { method: 'POST', body: JSON.stringify(data) }),
