@@ -214,13 +214,16 @@ export default function Internships() {
       ) : items.length === 0 ? (
         <div className="empty-state py-16">
           <GraduationCap className="w-8 h-8 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-          <p className="text-sm text-slate-400 dark:text-slate-600 mb-4">
-            No opportunities found yet.
+          <p className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1">
+            No opportunities found yet
+          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-600 mb-5 max-w-xs mx-auto text-center">
+            Enter your keywords above (e.g. &quot;software&quot;, &quot;data science&quot;) then click <strong>Find Now</strong> to scrape Internshala, Unstop, Outreachy and LinkedIn.
           </p>
           <button onClick={handleDiscover} disabled={discovering}
             className="flex items-center gap-2 mx-auto px-5 py-2.5 bg-violet-600 text-white text-sm font-semibold rounded-lg hover:bg-violet-500 disabled:opacity-60 transition-colors cursor-pointer">
             {discovering ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            Search Now
+            {discovering ? 'Searching…' : 'Find Now'}
           </button>
         </div>
       ) : (

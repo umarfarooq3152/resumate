@@ -389,6 +389,12 @@ async def list_internships(
     from datetime import timedelta
     db = await get_db()
 
+    # If opportunity_type column doesn't exist yet (pre-migration), return empty gracefully
+    try:
+        test = await db.table("jobs").select("opportunity_type").limit(1).execute()
+    except Exception:
+        return {"items": [], "total": 0, "offset": offset, "limit": limit, "migration_needed": True}
+
     query = db.table("jobs").select(
         "id,source,title,company,location,apply_url,apply_method,apply_type,"
         "opportunity_type,posted_at,discovered_at,description,"
