@@ -13,23 +13,59 @@ log = logging.getLogger(__name__)
 class TrackingAgent(BaseAgent):
     name = "tracking"
 
-    async def run(self) -> dict[str, Any]:
-        """Return a summary of the current pipeline state using COUNT queries."""
+    async def run(self, profile_id: str | None = None) -> dict[str, Any]:
+        """Return a summary of the current pipeline state using COUNT queries.
+
+        When profile_id is provided the match/application counts are scoped to
+        that profile's rows only (requires the migration that adds profile_id
+        columns to matches and applications).  Falls back to global counts when
+        profile_id is None or the column doesn't exist yet.
+        """
         import asyncio as _asyncio
         db = await get_db()
 
-        (
-            jobs_r, match_apply_r, match_skip_r,
-            apps_r, prep_r, sub_r, err_r,
-        ) = await _asyncio.gather(
-            db.table("jobs").select("id", count="exact").limit(1).execute(),
-            db.table("matches").select("id", count="exact").eq("decision", "apply").limit(1).execute(),
-            db.table("matches").select("id", count="exact").eq("decision", "skip").limit(1).execute(),
-            db.table("applications").select("id", count="exact").limit(1).execute(),
-            db.table("applications").select("id", count="exact").eq("status", "prepared").limit(1).execute(),
-            db.table("applications").select("id", count="exact").eq("status", "submitted").limit(1).execute(),
-            db.table("applications").select("id", count="exact").eq("status", "error").limit(1).execute(),
-        )
+        try:
+            if profile_id:
+                (
+                    jobs_r, match_apply_r, match_skip_r,
+                    apps_r, prep_r, sub_r, err_r,
+                ) = await _asyncio.gather(
+                    db.table("jobs").select("id", count="exact").limit(1).execute(),
+                    db.table("matches").select("id", count="exact").eq("profile_id", profile_id).eq("decision", "apply").limit(1).execute(),
+                    db.table("matches").select("id", count="exact").eq("profile_id", profile_id).eq("decision", "skip").limit(1).execute(),
+                    db.table("applications").select("id", count="exact").eq("profile_id", profile_id).limit(1).execute(),
+                    db.table("applications").select("id", count="exact").eq("profile_id", profile_id).eq("status", "prepared").limit(1).execute(),
+                    db.table("applications").select("id", count="exact").eq("profile_id", profile_id).eq("status", "submitted").limit(1).execute(),
+                    db.table("applications").select("id", count="exact").eq("profile_id", profile_id).eq("status", "error").limit(1).execute(),
+                )
+            else:
+                (
+                    jobs_r, match_apply_r, match_skip_r,
+                    apps_r, prep_r, sub_r, err_r,
+                ) = await _asyncio.gather(
+                    db.table("jobs").select("id", count="exact").limit(1).execute(),
+                    db.table("matches").select("id", count="exact").eq("decision", "apply").limit(1).execute(),
+                    db.table("matches").select("id", count="exact").eq("decision", "skip").limit(1).execute(),
+                    db.table("applications").select("id", count="exact").limit(1).execute(),
+                    db.table("applications").select("id", count="exact").eq("status", "prepared").limit(1).execute(),
+                    db.table("applications").select("id", count="exact").eq("status", "submitted").limit(1).execute(),
+                    db.table("applications").select("id", count="exact").eq("status", "error").limit(1).execute(),
+                )
+        except Exception as exc:
+            # If profile_id column doesn't exist yet (pre-migration), fall back to global counts
+            log.warning("[tracking] profile_id filter failed (%s) — falling back to global counts", exc)
+            (
+                jobs_r, match_apply_r, match_skip_r,
+                apps_r, prep_r, sub_r, err_r,
+            ) = await _asyncio.gather(
+                db.table("jobs").select("id", count="exact").limit(1).execute(),
+                db.table("matches").select("id", count="exact").eq("decision", "apply").limit(1).execute(),
+                db.table("matches").select("id", count="exact").eq("decision", "skip").limit(1).execute(),
+                db.table("applications").select("id", count="exact").limit(1).execute(),
+                db.table("applications").select("id", count="exact").eq("status", "prepared").limit(1).execute(),
+                db.table("applications").select("id", count="exact").eq("status", "submitted").limit(1).execute(),
+                db.table("applications").select("id", count="exact").eq("status", "error").limit(1).execute(),
+            )
 
         summary = {
             "jobs_discovered":        jobs_r.count or 0,
@@ -44,18 +80,25 @@ class TrackingAgent(BaseAgent):
         log.info("[tracking] %s", summary)
         return summary
 
-    async def get_pipeline(self) -> list[dict[str, Any]]:
+    async def get_pipeline(self, profile_id: str | None = None) -> list[dict[str, Any]]:
         """Return joined pipeline view for the dashboard (most recent 500 jobs)."""
         import asyncio as _asyncio
         db = await get_db()
-        # Limit to 500 most-recently discovered jobs to avoid loading the entire table
         recent_jobs_resp = await db.table("jobs").select("*").order("discovered_at", desc=True).limit(500).execute()
         job_ids = [j["id"] for j in (recent_jobs_resp.data or [])]
 
         if job_ids:
+            match_query = db.table("matches").select("*").in_("job_id", job_ids)
+            app_query   = db.table("applications").select("*").in_("job_id", job_ids)
+            if profile_id:
+                try:
+                    match_query = match_query.eq("profile_id", profile_id)
+                    app_query   = app_query.eq("profile_id", profile_id)
+                except Exception:
+                    pass
             matches_resp, apps_resp = await _asyncio.gather(
-                db.table("matches").select("*").in_("job_id", job_ids).execute(),
-                db.table("applications").select("*").in_("job_id", job_ids).execute(),
+                match_query.execute(),
+                app_query.execute(),
             )
             match_rows = matches_resp.data or []
             app_rows = apps_resp.data or []

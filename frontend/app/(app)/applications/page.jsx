@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { api } from '../../../lib/api';
+import { getSupabase } from '../../../lib/supabase';
 import Badge, { statusVariant } from '../../../components/Badge';
 import Spinner from '../../../components/Spinner';
 import ReviewModal from '../../../components/ReviewModal';
@@ -16,15 +17,32 @@ export default function Applications() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('pending');
+  const [profileId, setProfileId] = useState(null);
 
-  const load = async (t = tab) => {
+  const load = async (t = tab, pid = profileId) => {
     setLoading(true);
-    try { setApps((await api.getApplications(t)) ?? []); }
+    try { setApps((await api.getApplications(t, pid)) ?? []); }
     catch (e) { toast(e.message, 'error'); }
     setLoading(false);
   };
 
-  useEffect(() => { load(tab); }, [tab]);
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await getSupabase().auth.getUser();
+      let pid = null;
+      if (user) {
+        try {
+          const profiles = await api.getProfiles(user.id);
+          pid = profiles?.[0]?.id ?? null;
+        } catch { /* no profile */ }
+        setProfileId(pid);
+      }
+      load(tab, pid);
+    };
+    init();
+  }, []);
+
+  useEffect(() => { if (profileId !== null) load(tab, profileId); }, [tab]);
 
   const handleReview = async (decision, data) => {
     try {

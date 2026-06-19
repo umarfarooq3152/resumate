@@ -62,6 +62,7 @@ class MatchingAgent(BaseAgent):
 
         await self.emit("matching.started", {"job_count": len(unmatched)})
         applied = skipped = 0
+        profile_db_id: str | None = profile.get("id")
 
         for job in unmatched:
             result = await self._score_one(job, resume_text)
@@ -71,7 +72,7 @@ class MatchingAgent(BaseAgent):
                 skipped += 1
                 continue
 
-            row = {
+            row: dict[str, Any] = {
                 "job_id": job["id"],
                 "score": result.score,
                 "reasoning": result.reasoning,
@@ -79,6 +80,8 @@ class MatchingAgent(BaseAgent):
                 "strengths": result.strengths or [],
                 "gaps": result.gaps or [],
             }
+            if profile_db_id:
+                row["profile_id"] = profile_db_id
             try:
                 await upsert_row("matches", row, on_conflict="job_id")
             except Exception as exc:

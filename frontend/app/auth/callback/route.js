@@ -31,8 +31,31 @@ export async function GET(request) {
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { error, data } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      // For new OAuth accounts that have no profile yet, send them to onboarding.
+      // Only do this when redirecting to /dashboard (not when linking accounts).
+      if (next === '/dashboard' && data?.user) {
+        try {
+          const apiBase = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+          const profilesRes = await fetch(
+            `${apiBase}/profiles?user_id=${encodeURIComponent(data.user.id)}`,
+            {
+              headers: { Authorization: `Bearer ${data.session?.access_token}` },
+              signal: AbortSignal.timeout(5000),
+            }
+          );
+          if (profilesRes.ok) {
+            const profiles = await profilesRes.json().catch(() => []);
+            if (!profiles?.length) {
+              return NextResponse.redirect(`${siteOrigin}/onboarding`);
+            }
+          }
+        } catch {
+          // If the profile check fails, proceed to dashboard — better than blocking login.
+        }
+      }
+
       return NextResponse.redirect(`${siteOrigin}${next}`);
     }
   }

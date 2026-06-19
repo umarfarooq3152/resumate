@@ -92,6 +92,14 @@ section > div, section > div > canvas { width: 100% !important; height: 100% !im
   .div-y {
     @apply divide-y divide-slate-100 dark:divide-white/[0.04];
   }
+
+  /* ── Glassmorphism surface (dark mode) ───────────────── */
+  .glass {
+    @apply bg-white/[0.04] border border-white/[0.08] backdrop-blur-md rounded-2xl;
+  }
+  .glass-hover {
+    @apply hover:bg-white/[0.07] hover:border-white/[0.14] transition-all duration-200;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

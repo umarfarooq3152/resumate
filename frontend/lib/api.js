@@ -23,8 +23,10 @@ async function req(path, options = {}) {
   });
   if (!res.ok) {
     if (res.status === 401) {
-      if (typeof window !== 'undefined') window.location.href = '/login';
-      throw new Error('Session expired. Please log in again.');
+      // Don't hard-redirect here — middleware already redirects unauthenticated
+      // requests to /login. A hard redirect here creates a loop for authenticated
+      // users whose token the backend doesn't recognise yet (e.g. new accounts).
+      throw new Error('Session expired. Please sign in again.');
     }
     const text = await res.text().catch(() => `HTTP ${res.status}`);
     // Don't leak raw HTML (502 gateway pages, etc.) into the UI
@@ -43,7 +45,7 @@ export const api = {
   updateSettings: (data) => req('/settings', { method: 'PATCH', body: JSON.stringify(data) }),
 
   // Review counts (for nav badges)
-  getCounts: () => req('/reviews/counts'),
+  getCounts: (profileId) => req(`/reviews/counts${profileId ? `?profile_id=${encodeURIComponent(profileId)}` : ''}`),
 
   // Profiles
   getProfiles: (userId) => req(`/profiles${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`),
@@ -76,12 +78,24 @@ export const api = {
     ).toString();
     return req(`/jobs?${qs}`);
   },
-  getMatches: (status) => req(`/matches${status && status !== 'all' ? `?status=${status}` : ''}`),
-  getPipeline: () => req('/pipeline'),
-  getDashboard: () => req('/dashboard'),
+  getMatches: (status, profileId) => {
+    const p = new URLSearchParams();
+    if (status && status !== 'all') p.set('status', status);
+    if (profileId) p.set('profile_id', profileId);
+    const qs = p.toString();
+    return req(`/matches${qs ? '?' + qs : ''}`);
+  },
+  getPipeline: (profileId) => req(`/pipeline${profileId ? `?profile_id=${encodeURIComponent(profileId)}` : ''}`),
+  getDashboard: (profileId) => req(`/dashboard${profileId ? `?profile_id=${encodeURIComponent(profileId)}` : ''}`),
 
   // Applications
-  getApplications: (status) => req(`/applications${status && status !== 'all' ? `?status=${status}` : ''}`),
+  getApplications: (status, profileId) => {
+    const p = new URLSearchParams();
+    if (status && status !== 'all') p.set('status', status);
+    if (profileId) p.set('profile_id', profileId);
+    const qs = p.toString();
+    return req(`/applications${qs ? '?' + qs : ''}`);
+  },
   submitApplication: (jobId) => req(`/applications/${jobId}/submit`, { method: 'POST', body: '{}' }),
 
   // Human-in-the-loop reviews

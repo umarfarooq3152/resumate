@@ -375,13 +375,19 @@ async def get_job(job_id: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 @app.get("/matches")
-async def list_matches(status: str | None = None) -> list[dict[str, Any]]:
+async def list_matches(status: str | None = None, profile_id: str | None = None) -> list[dict[str, Any]]:
     """AI-scored matches with job details and human review status."""
     db = await get_db()
-    resp = await db.table("matches").select(
+    query = db.table("matches").select(
         "id,job_id,score,reasoning,decision,strengths,gaps,created_at,"
         "jobs(id,title,company,location,description,apply_url,apply_method)"
-    ).order("score", desc=True).execute()
+    ).order("score", desc=True)
+    if profile_id:
+        try:
+            query = query.eq("profile_id", profile_id)
+        except Exception:
+            pass
+    resp = await query.execute()
     matches = resp.data or []
 
     # Flatten nested job fields into top-level keys
@@ -412,19 +418,19 @@ async def list_matches(status: str | None = None) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 @app.get("/dashboard")
-async def dashboard() -> dict[str, Any]:
+async def dashboard(profile_id: str | None = None) -> dict[str, Any]:
     from src.agents.tracking import TrackingAgent
-    stats = await TrackingAgent().run()
-    counts = await _review_counts()
+    stats = await TrackingAgent().run(profile_id=profile_id)
+    counts = await _review_counts(profile_id=profile_id)
     stats.update(counts)
     stats["dry_run"] = _overrides.get("dry_run", settings.dry_run)
     return stats
 
 
 @app.get("/pipeline")
-async def pipeline_view() -> list[dict[str, Any]]:
+async def pipeline_view(profile_id: str | None = None) -> list[dict[str, Any]]:
     from src.agents.tracking import TrackingAgent
-    return await TrackingAgent().get_pipeline()
+    return await TrackingAgent().get_pipeline(profile_id=profile_id)
 
 
 # ---------------------------------------------------------------------------
@@ -432,11 +438,17 @@ async def pipeline_view() -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 @app.get("/applications")
-async def list_applications(status: str | None = None) -> list[dict[str, Any]]:
+async def list_applications(status: str | None = None, profile_id: str | None = None) -> list[dict[str, Any]]:
     db = await get_db()
-    resp = await db.table("applications").select(
+    query = db.table("applications").select(
         "*, jobs(id,title,company,location,apply_url,apply_method,description)"
-    ).order("created_at", desc=True).execute()
+    ).order("created_at", desc=True)
+    if profile_id:
+        try:
+            query = query.eq("profile_id", profile_id)
+        except Exception:
+            pass
+    resp = await query.execute()
     apps = resp.data or []
 
     all_reviews = await select_rows("reviews", filters={"review_type": "application"})
@@ -474,8 +486,8 @@ async def manual_submit(job_id: str, background_tasks: BackgroundTasks) -> dict[
 # ---------------------------------------------------------------------------
 
 @app.get("/reviews/counts")
-async def get_review_counts() -> dict[str, int]:
-    return await _review_counts()
+async def get_review_counts(profile_id: str | None = None) -> dict[str, int]:
+    return await _review_counts(profile_id=profile_id)
 
 
 @app.get("/reviews")
@@ -673,21 +685,31 @@ async def list_form_submissions(limit: int = 50) -> list[dict[str, Any]]:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-async def _review_counts() -> dict[str, int]:
+async def _review_counts(profile_id: str | None = None) -> dict[str, int]:
     db = await get_db()
 
-    # Count approved/rejected match reviews directly in DB (no Python-side filtering)
     reviewed_match_resp = await db.table("reviews").select("job_id").eq("review_type", "match").in_("status", ["approved", "rejected"]).execute()
     reviewed_match_ids = {r["job_id"] for r in (reviewed_match_resp.data or [])}
 
     reviewed_app_resp = await db.table("reviews").select("job_id").eq("review_type", "application").in_("status", ["approved", "rejected"]).execute()
     reviewed_app_ids = {r["job_id"] for r in (reviewed_app_resp.data or [])}
 
-    all_matches = await select_rows("matches", filters={"decision": "apply"})
-    match_pending = len([m for m in all_matches if m["job_id"] not in reviewed_match_ids])
+    try:
+        match_query = db.table("matches").select("job_id").eq("decision", "apply")
+        app_query   = db.table("applications").select("job_id").eq("status", "prepared")
+        if profile_id:
+            match_query = match_query.eq("profile_id", profile_id)
+            app_query   = app_query.eq("profile_id", profile_id)
+        all_matches_resp = await match_query.execute()
+        all_apps_resp    = await app_query.execute()
+        all_matches = all_matches_resp.data or []
+        all_apps    = all_apps_resp.data or []
+    except Exception:
+        all_matches = await select_rows("matches", filters={"decision": "apply"})
+        all_apps    = await select_rows("applications", filters={"status": "prepared"})
 
-    all_apps = await select_rows("applications", filters={"status": "prepared"})
-    app_pending = len([a for a in all_apps if a["job_id"] not in reviewed_app_ids])
+    match_pending = len([m for m in all_matches if m["job_id"] not in reviewed_match_ids])
+    app_pending   = len([a for a in all_apps    if a["job_id"] not in reviewed_app_ids])
 
     return {
         "match_pending": match_pending,

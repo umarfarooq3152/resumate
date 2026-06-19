@@ -42,7 +42,9 @@ create table if not exists jobs (
     description           text,
     description_embedding vector(768),
     apply_method          text,                          -- 'google_form' | 'greenhouse_api' | 'lever_api' | 'ashby_api' | 'manual'
+    apply_type            text,                          -- 'auto' | 'online_manual' | 'manual'
     apply_url             text,
+    posted_at             timestamptz,
     raw                   jsonb,
     discovered_at         timestamptz default now(),
     unique (source, external_id)
@@ -52,6 +54,7 @@ create table if not exists jobs (
 create table if not exists matches (
     id         uuid primary key default gen_random_uuid(),
     job_id     uuid references jobs(id) on delete cascade,
+    profile_id uuid references profiles(id) on delete set null,   -- added by migration_multiuser
     score      float,
     reasoning  text,
     decision   text,                                     -- 'apply' | 'skip'
@@ -65,14 +68,27 @@ create table if not exists matches (
 create table if not exists applications (
     id               uuid primary key default gen_random_uuid(),
     job_id           uuid references jobs(id) on delete cascade,
+    profile_id       uuid references profiles(id) on delete set null,  -- added by migration_multiuser
     tailored_resume  text,
     cover_letter     text,
     status           text default 'prepared',            -- 'prepared' | 'submitted' | 'error' | 'manual_pending' | 'rejected'
+    review_status    text default 'pending',             -- 'pending' | 'approved' | 'rejected'
     submit_payload   jsonb,
     submitted_at     timestamptz,
     error            text,
     created_at       timestamptz default now(),
     unique (job_id)
+);
+
+-- Google Form submissions (auto-fill agent)
+create table if not exists form_submissions (
+    id         uuid primary key default gen_random_uuid(),
+    profile_id uuid references profiles(id) on delete set null,
+    job_id     uuid references jobs(id) on delete set null,
+    url        text not null,
+    fills      jsonb default '{}'::jsonb,                -- field_label → filled_value map
+    dry_run    boolean default true,
+    created_at timestamptz default now()
 );
 
 -- Human-in-the-loop review decisions
@@ -97,13 +113,16 @@ create table if not exists agent_events (
 );
 
 -- Indexes
-create index if not exists profiles_user_id_idx      on profiles (user_id);
-create index if not exists jobs_source_idx            on jobs (source);
-create index if not exists matches_decision_idx       on matches (decision);
-create index if not exists applications_status_idx    on applications (status);
-create index if not exists reviews_status_idx         on reviews (status);
-create index if not exists reviews_type_idx           on reviews (review_type);
-create index if not exists agent_events_agent_idx     on agent_events (agent, event_type);
+create index if not exists profiles_user_id_idx          on profiles (user_id);
+create index if not exists jobs_source_idx                on jobs (source);
+create index if not exists matches_decision_idx           on matches (decision);
+create index if not exists matches_profile_id_idx         on matches (profile_id);
+create index if not exists applications_status_idx        on applications (status);
+create index if not exists applications_profile_id_idx    on applications (profile_id);
+create index if not exists form_submissions_profile_id_idx on form_submissions (profile_id);
+create index if not exists reviews_status_idx             on reviews (status);
+create index if not exists reviews_type_idx               on reviews (review_type);
+create index if not exists agent_events_agent_idx         on agent_events (agent, event_type);
 
 -- IVFFlat cosine similarity indexes (768-dim)
 create index if not exists jobs_embedding_idx

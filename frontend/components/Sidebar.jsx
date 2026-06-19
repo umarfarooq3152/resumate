@@ -43,22 +43,27 @@ export default function Sidebar({ onClose }) {
   }, []);
 
   useEffect(() => {
-    const loadCounts = async () => {
+    let profileId = null;
+    const loadCounts = async (pid = profileId) => {
       try {
-        const [cnts, { data: { user } }] = await Promise.all([
-          api.getCounts(),
-          getSupabase().auth.getUser(),
-        ]);
-        if (user) {
-          const drafts = await api.getEmailDrafts({ user_id: user.id, status: 'pending_approval' }).catch(() => []);
-          setCounts({ ...cnts, draft_pending: drafts.length });
-        } else {
-          setCounts(cnts);
+        const { data: { user } } = await getSupabase().auth.getUser();
+        if (!user) return;
+        if (pid === null) {
+          try {
+            const profiles = await api.getProfiles(user.id);
+            pid = profiles?.[0]?.id ?? null;
+            profileId = pid;
+          } catch { /* no profile */ }
         }
+        const [cnts, drafts] = await Promise.all([
+          api.getCounts(pid),
+          api.getEmailDrafts({ user_id: user.id, status: 'pending_approval' }).catch(() => []),
+        ]);
+        setCounts({ ...cnts, draft_pending: drafts.length });
       } catch { /* ignore */ }
     };
     loadCounts();
-    const interval = setInterval(loadCounts, 30_000);
+    const interval = setInterval(() => loadCounts(profileId), 30_000);
     return () => clearInterval(interval);
   }, []);
 

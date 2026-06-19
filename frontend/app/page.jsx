@@ -11,19 +11,19 @@ const C = '#22d3ee';   // cyan
 const P = '#a855f7';   // purple
 
 const FEATURES = [
-  { icon: Search,       title: 'Smart Job Discovery',  desc: 'Scans Adzuna, Remotive and more. Fresh listings every run, zero duplicates.',              accent: C },
-  { icon: Target,       title: 'AI Match Scoring',      desc: 'Gemini AI scores every job 0–100 against your resume with strengths and gaps.',            accent: P },
-  { icon: FileEdit,     title: 'Tailored Documents',    desc: 'Custom resume and cover letter per job. Grounded in your real CV, no hallucinations.',     accent: C },
-  { icon: ClipboardList,title: 'Forms Filler',          desc: 'Paste any application link. AI fills every field. You review before submit.',              accent: P },
-  { icon: ShieldCheck,  title: 'Human-in-the-Loop',     desc: 'Nothing submitted without your approval. Every match waits for your sign-off.',            accent: C },
-  { icon: BarChart3,    title: 'Full Audit Trail',       desc: 'Every AI decision logged. See what was sent, when, and why.',                              accent: P },
+  { icon: Search,        title: 'Smart Job Discovery',  desc: 'Scans Adzuna, Remotive and more. Fresh listings every run, zero duplicates.',             accent: C },
+  { icon: Target,        title: 'AI Match Scoring',      desc: 'Gemini AI scores every job 0–100 against your resume with strengths and gaps.',           accent: P },
+  { icon: FileEdit,      title: 'Tailored Documents',    desc: 'Custom resume and cover letter per job. Grounded in your real CV, no hallucinations.',    accent: C },
+  { icon: ClipboardList, title: 'Forms Filler',          desc: 'Paste any application link. AI fills every field. You review before submit.',             accent: P },
+  { icon: ShieldCheck,   title: 'Human-in-the-Loop',     desc: 'Nothing submitted without your approval. Every match waits for your sign-off.',           accent: C },
+  { icon: BarChart3,     title: 'Full Audit Trail',       desc: 'Every AI decision logged. See what was sent, when, and why.',                             accent: P },
 ];
 
 const STEPS = [
-  { title: 'Upload your resume',           desc: 'Paste or upload your CV. Gemini AI parses skills, experience and goals automatically.' },
-  { title: 'Set your preferences',         desc: 'Choose role, location and keywords. The agent scans job boards on every run.' },
-  { title: 'AI scores every match',        desc: 'Each job gets a 0–100 fit score with a clear breakdown of strengths and skill gaps.' },
-  { title: 'You review and approve',       desc: "See the AI's reasoning, edit the tailored resume and cover letter, then approve." },
+  { title: 'Upload your resume',              desc: 'Paste or upload your CV. Gemini AI parses skills, experience and goals automatically.' },
+  { title: 'Set your preferences',            desc: 'Choose role, location and keywords. The agent scans job boards on every run.' },
+  { title: 'AI scores every match',           desc: 'Each job gets a 0–100 fit score with a clear breakdown of strengths and skill gaps.' },
+  { title: 'You review and approve',          desc: "See the AI's reasoning, edit the tailored resume and cover letter, then approve." },
   { title: 'Applications sent automatically', desc: 'Approved applications go out. You only make the decisions.' },
 ];
 
@@ -55,13 +55,29 @@ export default function Landing() {
     <div style={{ background: '#08090f', fontFamily: "'Inter',system-ui,sans-serif", color: '#fff', overflowX: 'hidden' }}>
 
       {/* Navbar */}
-      <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 32px', background: 'rgba(8,9,15,0.7)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+      <nav style={{
+        position: 'fixed', top: 16, left: 16, right: 16, zIndex: 50,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 24px',
+        background: 'rgba(8,9,15,0.75)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        borderRadius: 14,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+      }}>
         <Link href="/" style={{ textDecoration: 'none' }}>
-          <Image src="/logo.png" alt="RESUMATE" width={130} height={71} priority style={{ height: 36, width: 'auto' }} />
+          <Image src="/logo.png" alt="RESUMATE" width={130} height={71} priority style={{ height: 34, width: 'auto' }} />
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Link href="/login" style={{ fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.45)', padding: '6px 14px', textDecoration: 'none' }}>Sign in</Link>
-          <Link href="/register" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: `linear-gradient(135deg,${C},${P})`, color: '#08090f', fontWeight: 700, fontSize: 14, textDecoration: 'none', boxShadow: `0 0 24px ${C}44` }}>
+          <Link href="/register" style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px',
+            background: `linear-gradient(135deg,${C},${P})`,
+            color: '#08090f', fontWeight: 700, fontSize: 14, textDecoration: 'none',
+            borderRadius: 8,
+            boxShadow: `0 0 20px ${C}44`,
+          }}>
             Get started <ArrowRight size={14} />
           </Link>
         </div>
@@ -72,7 +88,7 @@ export default function Landing() {
         <SplineHero />
       </section>
 
-      {/* Stats */}
+      {/* Stats strip */}
       <div style={{ ...divider, padding: '64px 24px', background: `rgba(34,211,238,0.02)` }}>
         <div style={{ maxWidth: 960, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 32 }}>
           {[
@@ -99,7 +115,14 @@ export default function Landing() {
           {STEPS.map(({ title, desc }, i) => (
             <div key={title} style={{ display: 'flex', gap: 24 }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ width: 36, height: 36, border: `1px solid ${C}44`, color: C, fontSize: 13, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, background: `${C}10` }}>
+                <div style={{
+                  width: 36, height: 36,
+                  border: `1px solid ${C}44`,
+                  color: C, fontSize: 13, fontWeight: 900,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  background: `${C}10`,
+                  borderRadius: 10,
+                }}>
                   {i + 1}
                 </div>
                 {i < STEPS.length - 1 && <div style={{ width: 1, flex: 1, background: `linear-gradient(${C}44,transparent)`, minHeight: 32, marginTop: 4 }} />}
@@ -114,14 +137,30 @@ export default function Landing() {
       </section>
 
       {/* Features */}
-      <section id="features" style={{ ...divider, padding: '96px 24px', background: `${C}08` }}>
+      <section id="features" style={{ ...divider, padding: '96px 24px', background: `${C}06` }}>
         <div style={{ maxWidth: 1120, margin: '0 auto' }}>
           <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: C, marginBottom: 12 }}>Features</p>
           <h2 style={{ fontSize: 'clamp(2rem,5vw,3rem)', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 56 }}>Everything you need<br />to get hired.</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 2 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 12 }}>
             {FEATURES.map(({ icon: Icon, title, desc, accent }) => (
-              <div key={title} style={{ padding: 28, background: 'rgba(255,255,255,0.03)', border: `1px solid rgba(255,255,255,0.06)`, cursor: 'default' }}>
-                <div style={{ width: 40, height: 40, background: `${accent}18`, border: `1px solid ${accent}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, boxShadow: `0 0 16px ${accent}22` }}>
+              <div key={title} style={{
+                padding: 28,
+                background: 'rgba(255,255,255,0.03)',
+                border: `1px solid rgba(255,255,255,0.07)`,
+                borderRadius: 16,
+                backdropFilter: 'blur(4px)',
+                WebkitBackdropFilter: 'blur(4px)',
+                transition: 'border-color 0.2s, background 0.2s',
+                cursor: 'default',
+              }}>
+                <div style={{
+                  width: 40, height: 40,
+                  background: `${accent}18`, border: `1px solid ${accent}33`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 20,
+                  borderRadius: 12,
+                  boxShadow: `0 0 16px ${accent}22`,
+                }}>
                   <Icon size={18} color={accent} />
                 </div>
                 <p style={{ fontWeight: 700, marginBottom: 8, fontSize: 15 }}>{title}</p>
@@ -140,16 +179,24 @@ export default function Landing() {
             <h2 style={{ fontSize: 'clamp(2rem,5vw,3rem)', fontWeight: 900, letterSpacing: '-0.03em' }}>Simple, honest pricing.</h2>
             <p style={{ color: 'rgba(255,255,255,0.4)', marginTop: 12 }}>Start free. No credit card required.</p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 2 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 12 }}>
             {PRICING.map(({ name, price, period, desc, features, cta, href, highlight }) => (
               <div key={name} style={{
                 padding: 32, display: 'flex', flexDirection: 'column', position: 'relative',
-                background: highlight ? `linear-gradient(135deg,${C}12,${P}12)` : 'rgba(255,255,255,0.03)',
-                border: highlight ? `1px solid ${C}55` : '1px solid rgba(255,255,255,0.07)',
+                background: highlight ? `linear-gradient(135deg,${C}14,${P}14)` : 'rgba(255,255,255,0.03)',
+                border: highlight ? `1px solid ${C}55` : '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 18,
+                backdropFilter: highlight ? 'blur(8px)' : 'blur(4px)',
+                WebkitBackdropFilter: highlight ? 'blur(8px)' : 'blur(4px)',
                 boxShadow: highlight ? `0 0 48px ${C}18,0 0 80px ${P}10` : 'none',
               }}>
                 {highlight && (
-                  <div style={{ position: 'absolute', top: -1, left: 0, right: 0, height: 2, background: `linear-gradient(90deg,${C},${P})` }} />
+                  <div style={{ position: 'absolute', top: -1, left: '10%', right: '10%', height: 2, background: `linear-gradient(90deg,transparent,${C},${P},transparent)`, borderRadius: 2 }} />
+                )}
+                {highlight && (
+                  <div style={{ position: 'absolute', top: 16, right: 16, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#08090f', background: `linear-gradient(135deg,${C},${P})`, padding: '3px 8px', borderRadius: 6 }}>
+                    Popular
+                  </div>
                 )}
                 <p style={{ fontSize: 12, fontWeight: 700, color: highlight ? C : 'rgba(255,255,255,0.45)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{name}</p>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 8 }}>
@@ -166,11 +213,13 @@ export default function Landing() {
                   ))}
                 </ul>
                 <Link href={href} style={{
-                  display: 'block', textAlign: 'center', padding: '10px 0', fontWeight: 700, fontSize: 14, textDecoration: 'none',
-                  background: highlight ? `linear-gradient(135deg,${C},${P})` : 'rgba(255,255,255,0.06)',
+                  display: 'block', textAlign: 'center', padding: '11px 0', fontWeight: 700, fontSize: 14, textDecoration: 'none',
+                  background: highlight ? `linear-gradient(135deg,${C},${P})` : 'rgba(255,255,255,0.07)',
                   color: highlight ? '#08090f' : '#fff',
                   border: highlight ? 'none' : '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 10,
                   boxShadow: highlight ? `0 0 24px ${C}44` : 'none',
+                  transition: 'opacity 0.15s',
                 }}>{cta}</Link>
               </div>
             ))}
@@ -179,16 +228,28 @@ export default function Landing() {
       </section>
 
       {/* Trust badges */}
-      <div style={{ ...divider, padding: '48px 24px', background: `${P}08` }}>
-        <div style={{ maxWidth: 960, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 2 }}>
+      <div style={{ ...divider, padding: '48px 24px', background: `${P}06` }}>
+        <div style={{ maxWidth: 960, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 10 }}>
           {[
-            { icon: Lock,        title: 'Data encrypted',  sub: 'AES-256 at rest + in transit',            accent: C },
-            { icon: ShieldCheck, title: 'HITL approval',   sub: '100% of submissions require sign-off',    accent: P },
-            { icon: Database,    title: 'Supabase hosted', sub: 'Postgres + row-level security',            accent: C },
-            { icon: Cpu,         title: 'Dry-run mode',    sub: 'Safe default — no real sends until ready', accent: P },
+            { icon: Lock,        title: 'Data encrypted',  sub: 'AES-256 at rest + in transit',             accent: C },
+            { icon: ShieldCheck, title: 'HITL approval',   sub: '100% of submissions require sign-off',     accent: P },
+            { icon: Database,    title: 'Supabase hosted', sub: 'Postgres + row-level security',             accent: C },
+            { icon: Cpu,         title: 'Dry-run mode',    sub: 'Safe default — no real sends until ready',  accent: P },
           ].map(({ icon: Icon, title, sub, accent }) => (
-            <div key={title} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 20, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ width: 32, height: 32, background: `${accent}18`, border: `1px solid ${accent}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div key={title} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 12, padding: 20,
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: 14,
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+            }}>
+              <div style={{
+                width: 32, height: 32,
+                background: `${accent}18`, border: `1px solid ${accent}33`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                borderRadius: 8,
+              }}>
                 <Icon size={14} color={accent} />
               </div>
               <div>
@@ -211,7 +272,8 @@ export default function Landing() {
           <Link href="/register" style={{
             display: 'inline-flex', alignItems: 'center', gap: 8, padding: '14px 32px',
             background: `linear-gradient(135deg,${C},${P})`, color: '#08090f', fontWeight: 700, fontSize: 14,
-            textDecoration: 'none', boxShadow: `0 0 40px ${C}44,0 0 80px ${P}22`,
+            textDecoration: 'none', borderRadius: 10,
+            boxShadow: `0 0 40px ${C}44,0 0 80px ${P}22`,
           }}>
             Create your free account <ArrowRight size={16} />
           </Link>
