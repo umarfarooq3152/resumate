@@ -19,8 +19,9 @@ export default function Applications() {
   const [tab, setTab] = useState('pending');
   const [profileId, setProfileId] = useState(null);
 
-  const load = async (t = tab, pid = profileId) => {
+  const load = async (t = tab, pid = profileId, hasProfile = !!pid) => {
     setLoading(true);
+    if (!hasProfile) { setApps([]); setLoading(false); return; }
     try { setApps((await api.getApplications(t, pid)) ?? []); }
     catch (e) { toast(e.message, 'error'); }
     setLoading(false);
@@ -37,12 +38,12 @@ export default function Applications() {
         } catch { /* no profile */ }
         setProfileId(pid);
       }
-      load(tab, pid);
+      load(tab, pid, !!pid);
     };
     init();
   }, []);
 
-  useEffect(() => { if (profileId !== null) load(tab, profileId); }, [tab]);
+  useEffect(() => { if (profileId !== null) load(tab, profileId, !!profileId); }, [tab]);
 
   const handleReview = async (decision, data) => {
     try {

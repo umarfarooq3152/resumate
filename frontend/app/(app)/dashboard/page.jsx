@@ -16,8 +16,17 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [profileId, setProfileId] = useState(null);
 
-  const load = async (silent = false, pid = profileId) => {
+  const EMPTY_STATS = { jobs_discovered: 0, jobs_matched: 0, total_applications: 0, applications_submitted: 0, dry_run: true, match_pending: 0, application_pending: 0 };
+
+  const load = async (silent = false, pid = profileId, hasProfile = !!pid) => {
     if (!silent) { setLoading(true); setError(''); }
+    if (!hasProfile) {
+      // No profile yet — show zero state, don't pull global data
+      setStats(EMPTY_STATS);
+      setEvents([]);
+      if (!silent) setLoading(false);
+      return;
+    }
     const [s, e] = await Promise.allSettled([api.getDashboard(pid), api.getEvents(30)]);
     if (s.status === 'fulfilled') setStats(s.value);
     else if (!silent) setError(s.reason?.message ?? 'Failed to load dashboard');
@@ -34,11 +43,12 @@ export default function Dashboard() {
         try {
           const profiles = await api.getProfiles(user.id);
           pid = profiles?.[0]?.id ?? null;
-        } catch { /* no profile yet — show global empty state */ }
+        } catch { /* network error — treat as no profile */ }
         setProfileId(pid);
       }
-      await load(false, pid);
-      iv = setInterval(() => load(true, pid), 30_000);
+      const hasProfile = !!pid;
+      await load(false, pid, hasProfile);
+      iv = setInterval(() => load(true, pid, hasProfile), 30_000);
     };
     init();
     return () => clearInterval(iv);
