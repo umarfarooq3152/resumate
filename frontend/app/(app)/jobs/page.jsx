@@ -106,7 +106,7 @@ export default function Jobs() {
   const [tab, setTab]             = useState('all');
   const [keywords, setKeywords]   = useState('');
   const [location, setLocation]   = useState('');
-  const [days, setDays]           = useState(7);
+  const [days, setDays]           = useState(30);
   const [page, setPage]           = useState(0);
   const [discovering, setDiscover] = useState(false);
   const [matching, setMatching]   = useState(null);
@@ -114,7 +114,7 @@ export default function Jobs() {
   const [lastSources, setSources] = useState([]);
 
   // Stable ref — holds current query params so load() never reads stale state
-  const qRef = useRef({ tab: 'all', location: '', keywords: '', days: 7, page: 0 });
+  const qRef = useRef({ tab: 'all', location: '', keywords: '', days: 30, page: 0 });
   const matchPollRef = useRef(null);
 
   const load = useCallback(async (overrides = {}) => {
@@ -153,12 +153,12 @@ export default function Jobs() {
             const loc = p.target_location ?? '';
             setKeywords(kw);
             setLocation(loc);
-            load({ tab: 'all', location: loc, keywords: kw, days: 7, page: 0 });
+            load({ tab: 'all', location: loc, keywords: kw, days: 30, page: 0 });
             return;
           }
         } catch { /* no profile yet */ }
       }
-      load({ tab: 'all', location: '', keywords: '', days: 7, page: 0 });
+      load({ tab: 'all', location: '', keywords: '', days: 30, page: 0 });
     })();
     return () => clearInterval(matchPollRef.current);
   }, []); // runs once — no auto-refresh after this

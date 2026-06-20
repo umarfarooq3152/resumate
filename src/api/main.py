@@ -308,7 +308,7 @@ async def upload_resume(
 @app.get("/jobs")
 async def list_jobs(
     tab: str = "all",
-    days: int = 7,
+    days: int = 30,
     location: str = "",
     keywords: str = "",
     limit: int = 10,
@@ -325,6 +325,12 @@ async def list_jobs(
         "matches(score,decision,strengths,gaps,reasoning)",
         count="exact",
     )
+
+    # Exclude internships/fellowships — filter only when column exists
+    try:
+        query = query.or_("opportunity_type.eq.job,opportunity_type.is.null")
+    except Exception:
+        pass
 
     # Tab → apply_type filter
     type_map = {"auto": "auto", "online": "online_manual", "manual": "manual_only"}
