@@ -1,38 +1,25 @@
 #!/usr/bin/env bash
-# Start all services from the PROJECT ROOT.
-# Usage:  ./start.sh          — starts both FastAPI and WhatsApp sidecar
-#         ./start.sh api       — FastAPI only
-#         ./start.sh whatsapp  — WhatsApp sidecar only
-
+# Run the full stack locally for demo/development.
+# Usage: ./start.sh
 set -e
+
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+echo "[1/2] Starting backend on http://localhost:8080 ..."
 cd "$ROOT"
+uvicorn src.api.main:app --host 0.0.0.0 --port 8080 --reload &
+BACKEND_PID=$!
 
-start_api() {
-  echo "Starting FastAPI backend on :8000..."
-  "$ROOT/.venv/bin/uvicorn" src.api.main:app --reload --port 8000
-}
+echo "[2/2] Starting frontend on http://localhost:3000 ..."
+cd "$ROOT/frontend"
+npm run dev -- --port 3000 &
+FRONTEND_PID=$!
 
-start_whatsapp() {
-  echo "Starting WhatsApp sidecar on :3001..."
-  cd "$ROOT/whatsapp-service"
-  node index.js
-}
+echo ""
+echo "  Backend  → http://localhost:8080"
+echo "  Frontend → http://localhost:3000"
+echo ""
+echo "Press Ctrl+C to stop both."
 
-case "${1:-both}" in
-  api)       start_api ;;
-  whatsapp)  start_whatsapp ;;
-  both)
-    # Run both in parallel; Ctrl-C kills both
-    start_api &
-    API_PID=$!
-    start_whatsapp &
-    WA_PID=$!
-    trap "kill $API_PID $WA_PID 2>/dev/null" EXIT INT TERM
-    wait
-    ;;
-  *)
-    echo "Usage: $0 [api|whatsapp|both]"
-    exit 1
-    ;;
-esac
+trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit 0" INT TERM
+wait
