@@ -18,11 +18,9 @@ services:
       args:
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-        NEXT_PUBLIC_API_URL: ""
     ports:
       - "3000:3000"
     environment:
-      # Server-side proxy: frontend container → api container on same Docker network
       API_URL: http://api:8080
     depends_on:
       api:

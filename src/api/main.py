@@ -318,6 +318,13 @@ async def list_jobs(
     from datetime import timedelta
     db = await get_db()
 
+    # Check if opportunity_type column exists (added by migration_internships.sql)
+    has_opp_type = True
+    try:
+        await db.table("jobs").select("opportunity_type").limit(1).execute()
+    except Exception:
+        has_opp_type = False
+
     # Include match score if available
     query = db.table("jobs").select(
         "id,source,title,company,location,apply_url,apply_method,apply_type,"
@@ -326,11 +333,9 @@ async def list_jobs(
         count="exact",
     )
 
-    # Exclude internships/fellowships — filter only when column exists
-    try:
+    # Exclude internships/fellowships when column exists
+    if has_opp_type:
         query = query.or_("opportunity_type.eq.job,opportunity_type.is.null")
-    except Exception:
-        pass
 
     # Tab → apply_type filter
     type_map = {"auto": "auto", "online": "online_manual", "manual": "manual_only"}

@@ -44,11 +44,14 @@ create table if not exists jobs (
     apply_method          text,                          -- 'google_form' | 'greenhouse_api' | 'lever_api' | 'ashby_api' | 'manual'
     apply_type            text,                          -- 'auto' | 'online_manual' | 'manual'
     apply_url             text,
+    opportunity_type      text default 'job',            -- 'job' | 'internship' | 'fellowship'
     posted_at             timestamptz,
     raw                   jsonb,
     discovered_at         timestamptz default now(),
     unique (source, external_id)
 );
+
+create index if not exists idx_jobs_opportunity_type on jobs(opportunity_type);
 
 -- AI-scored match decisions
 create table if not exists matches (
