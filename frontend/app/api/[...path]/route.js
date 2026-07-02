@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
-const API_URL = (
-  process.env.API_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  'http://localhost:8080'
-).replace(/\/$/, '');
+let _apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+if (!_apiUrl.startsWith('http://') && !_apiUrl.startsWith('https://')) {
+  _apiUrl = 'http://' + _apiUrl;
+}
+const API_URL = _apiUrl.replace(/\/$/, '');
 
 async function proxy(request, { params }) {
   const path = (params.path || []).join('/');
